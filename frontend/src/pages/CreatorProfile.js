@@ -13,12 +13,14 @@ const CreatorProfile = () => {
   const navigate = useNavigate();
   const [creator, setCreator] = useState(null);
   const [reviews, setReviews] = useState([]);
+  const [portfolio, setPortfolio] = useState([]);
   const [loading, setLoading] = useState(true);
   const [hasAccess, setHasAccess] = useState(false);
 
   useEffect(() => {
     fetchCreator();
     fetchReviews();
+    fetchPortfolio();
     checkAccess();
   }, [id]);
 
@@ -43,6 +45,17 @@ const CreatorProfile = () => {
       setReviews(response.data);
     } catch (error) {
       console.error('Failed to fetch reviews:', error);
+    }
+  };
+
+  const fetchPortfolio = async () => {
+    try {
+      const response = await axios.get(`${BACKEND_URL}/api/creators/${id}/portfolio`, {
+        withCredentials: true
+      });
+      setPortfolio(response.data || []);
+    } catch (error) {
+      console.error('Failed to fetch portfolio:', error);
     }
   };
 
@@ -205,6 +218,33 @@ const CreatorProfile = () => {
             )}
           </div>
         </div>
+
+        {/* Portfolio Section */}
+        {portfolio.length > 0 && (
+          <div className="bg-white border-2 border-[#0A0A0A] shadow-[6px_6px_0px_0px_rgba(10,10,10,1)] rounded-xl p-6 sm:p-8">
+            <h2 className="text-2xl sm:text-3xl font-black mb-6">Portfolio</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {portfolio.map((item, index) => (
+                <div
+                  key={index}
+                  className="border-2 border-[#0A0A0A] rounded-lg overflow-hidden group cursor-pointer hover:shadow-[4px_4px_0px_0px_rgba(10,10,10,1)] transition-shadow"
+                  onClick={() => window.open(item.media_url, '_blank')}
+                >
+                  <div className="aspect-video bg-gray-200 overflow-hidden">
+                    <img
+                      src={item.media_url}
+                      alt={item.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                    />
+                  </div>
+                  <div className="p-3">
+                    <p className="font-bold text-sm line-clamp-2">{item.title}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Reviews Section */}
         <div className="bg-white border-2 border-[#0A0A0A] shadow-[6px_6px_0px_0px_rgba(10,10,10,1)] rounded-xl p-6 sm:p-8">

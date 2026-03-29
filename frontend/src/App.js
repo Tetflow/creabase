@@ -21,9 +21,11 @@ import AdminDisputesPage from './pages/AdminDisputesPage';
 import AdminPayoutsPage from './pages/AdminPayoutsPage';
 import AdminPayouts from './pages/AdminPayouts';
 import CreatorDashboard from './pages/CreatorDashboard';
+import CreatorPortfolioPage from './pages/CreatorPortfolioPage';
 import CreatorAnalyticsPage from './pages/CreatorAnalyticsPage';
 import VerificationPage from './pages/VerificationPage';
 import ProjectsPage from './pages/ProjectsPage';
+import ProposalsPage from './pages/ProposalsPage';
 import CreatorProjectsPage from './pages/CreatorProjectsPage';
 import DisputesPage from './pages/DisputesPage';
 import ChatPage from './pages/ChatPage';
@@ -87,6 +89,14 @@ function AppRouter() {
         element={
           <ProtectedRoute>
             <ProjectsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/projects/:projectId/proposals"
+        element={
+          <ProtectedRoute>
+            <ProposalsPage />
           </ProtectedRoute>
         }
       />
@@ -193,6 +203,14 @@ function AppRouter() {
         element={
           <ProtectedRoute>
             <CreatorDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/creator/portfolio"
+        element={
+          <ProtectedRoute>
+            <CreatorPortfolioPage />
           </ProtectedRoute>
         }
       />

@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { Menu, X, User, Wallet, Settings, LogOut, Home, Users, BarChart3, DollarSign, ChevronDown, Briefcase, MessageSquare, AlertTriangle, FileText, TrendingUp } from 'lucide-react';
 import Logo from './Logo';
+import NotificationBell from './NotificationBell';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
 
@@ -112,6 +113,9 @@ export default function Header() {
                     </button>
                   )
                 )}
+
+                {/* Notification Bell */}
+                {user && <NotificationBell />}
 
                 {/* User Dropdown */}
                 <div className="relative">
