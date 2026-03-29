@@ -5227,6 +5227,105 @@ async def update_tax_settings(
     return {"message": "Tax settings updated successfully"}
 
 
+# TEST ENDPOINTS - For automated testing only
+@api_router.post("/test/create-test-user")
+async def create_test_user(response: Response, role: str = "creator", name: str = "Test Creator"):
+    """Create a test user with session for testing purposes"""
+    
+    # Validate role
+    if role not in ["creator", "business"]:
+        raise HTTPException(status_code=400, detail="Role must be 'creator' or 'business'")
+    
+    # Generate unique test user
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+    user_id = f"test_{role}_{uuid.uuid4().hex[:8]}"
+    email = f"test_{role}_{timestamp}@test.com"
+    
+    # Create user in database
+    user_data = {
+        "user_id": user_id,
+        "email": email,
+        "name": name,
+        "picture": "https://via.placeholder.com/150",
+        "role": role,
+        "subscription_status": "premium" if role == "business" else "free",
+        "created_at": datetime.now(timezone.utc)
+    }
+    
+    await db.users.insert_one(user_data)
+    
+    # Create wallet for user
+    await db.wallets.insert_one({
+        "wallet_id": f"wallet_{uuid.uuid4().hex[:12]}",
+        "user_id": user_id,
+        "balance": 10000.0 if role == "business" else 0.0,
+        "currency": "INR",
+        "created_at": datetime.now(timezone.utc),
+        "updated_at": datetime.now(timezone.utc)
+    })
+    
+    # If creator, create creator profile
+    if role == "creator":
+        creator_data = {
+            "creator_id": user_id,
+            "user_id": user_id,
+            "submitted_by": user_id,
+            "name": name,
+            "email": email,
+            "bio": "Test creator for automated testing",
+            "skills": ["Web Development", "UI/UX Design"],
+            "categories": ["Technology"],
+            "hourly_rate": 50.0,
+            "availability": "available",
+            "status": "approved",
+            "rating": 4.5,
+            "total_reviews": 10,
+            "projects_completed": 5,
+            "response_time_hours": 2,
+            "onboarding_completed": True,
+            "onboarding_step": 4,
+            "profile_picture": "https://via.placeholder.com/150",
+            "social_verified": True,
+            "bank_details": {
+                "account_holder_name": name,
+                "account_number": "1234567890",
+                "ifsc_code": "TEST0001234",
+                "bank_name": "Test Bank",
+                "branch": "Test Branch"
+            },
+            "created_at": datetime.now(timezone.utc),
+            "updated_at": datetime.now(timezone.utc)
+        }
+        await db.creators.insert_one(creator_data)
+    
+    # Create session token
+    session_token = f"test_session_{uuid.uuid4().hex}"
+    await db.user_sessions.insert_one({
+        "user_id": user_id,
+        "session_token": session_token,
+        "expires_at": datetime.now(timezone.utc) + timedelta(days=7),
+        "created_at": datetime.now(timezone.utc)
+    })
+    
+    # Set session cookie
+    response.set_cookie(
+        key="session_token",
+        value=session_token,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        max_age=7 * 24 * 60 * 60
+    )
+    
+    # Remove _id from user_data for response
+    user_data_response = {k: v for k, v in user_data.items() if k != "_id"}
+    
+    return {
+        "user": user_data_response,
+        "session_token": session_token,
+        "message": f"Test {role} user created successfully"
+    }
+
 
 # Include router at the end after all routes are defined
 app.include_router(api_router)
