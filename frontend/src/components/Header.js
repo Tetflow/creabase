@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
-import { Menu, X, User, Wallet, Settings, LogOut, Home, Users, BarChart3, DollarSign, ChevronDown } from 'lucide-react';
+import { Menu, X, User, Wallet, Settings, LogOut, Home, Users, BarChart3, DollarSign, ChevronDown, Briefcase, MessageSquare, AlertTriangle, FileText, TrendingUp } from 'lucide-react';
 import Logo from './Logo';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
@@ -43,17 +43,25 @@ export default function Header() {
     user.role === 'admin' ? [
       { icon: <Home size={18} />, label: 'Dashboard', path: '/admin' },
       { icon: <Users size={18} />, label: 'Users', path: '/admin/users' },
+      { icon: <Wallet size={18} />, label: 'Wallets', path: '/admin/wallets' },
       { icon: <DollarSign size={18} />, label: 'Payouts', path: '/admin/payouts' },
+      { icon: <AlertTriangle size={18} />, label: 'Disputes', path: '/admin/disputes' },
       { icon: <BarChart3 size={18} />, label: 'Analytics', path: '/admin/analytics' },
+      { icon: <Settings size={18} />, label: 'Settings', path: '/admin/settings' },
     ] : user.role === 'creator' ? [
       { icon: <Home size={18} />, label: 'Dashboard', path: '/creator-dashboard' },
-      { icon: <BarChart3 size={18} />, label: 'Analytics', path: '/creator-analytics' },
+      { icon: <Briefcase size={18} />, label: 'Projects', path: '/creator-projects' },
+      { icon: <MessageSquare size={18} />, label: 'Chats', path: '/chats' },
+      { icon: <TrendingUp size={18} />, label: 'Analytics', path: '/creator-analytics' },
       { icon: <Wallet size={18} />, label: 'Wallet', path: '/wallet' },
-      { icon: <Settings size={18} />, label: 'Settings', path: '/creator/settings' },
+      { icon: <AlertTriangle size={18} />, label: 'Disputes', path: '/disputes' },
     ] : [
       { icon: <Home size={18} />, label: 'Dashboard', path: '/dashboard' },
-      { icon: <BarChart3 size={18} />, label: 'Analytics', path: '/analytics' },
+      { icon: <Briefcase size={18} />, label: 'Projects', path: '/projects' },
+      { icon: <MessageSquare size={18} />, label: 'Chats', path: '/chats' },
+      { icon: <TrendingUp size={18} />, label: 'Analytics', path: '/analytics' },
       { icon: <Wallet size={18} />, label: 'Wallet', path: '/wallet' },
+      { icon: <AlertTriangle size={18} />, label: 'Disputes', path: '/disputes' },
       { icon: <Settings size={18} />, label: 'Settings', path: '/business/settings' },
     ]
   ) : [];
@@ -66,24 +74,26 @@ export default function Header() {
           <Logo size="small" />
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center gap-4">
+          <nav className="hidden md:flex items-center gap-2 overflow-x-auto max-w-3xl scrollbar-hide">
             {user ? (
               <>
                 {/* Navigation Items */}
-                {navItems.map((item, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => navigate(item.path)}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-lg font-bold transition-all ${
-                      location.pathname === item.path
-                        ? 'bg-yellow-400 text-black border-2 border-black shadow-brutal-sm'
-                        : 'text-gray-700 hover:bg-gray-100'
-                    }`}
-                  >
-                    {item.icon}
-                    <span className="text-sm">{item.label}</span>
-                  </button>
-                ))}
+                <div className="flex items-center gap-2 flex-nowrap">
+                  {navItems.map((item, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => navigate(item.path)}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-lg font-bold transition-all whitespace-nowrap ${
+                        location.pathname === item.path
+                          ? 'bg-yellow-400 text-black border-2 border-black shadow-brutal-sm'
+                          : 'text-gray-700 hover:bg-gray-100'
+                      }`}
+                    >
+                      {item.icon}
+                      <span className="text-sm">{item.label}</span>
+                    </button>
+                  ))}
+                </div>
                 
                 {/* Subscription Button - Only for Business and Creator */}
                 {user.role !== 'admin' && user.subscription_status !== 'active' && (
