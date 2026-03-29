@@ -180,14 +180,8 @@ function AppRouter() {
           </ProtectedRoute>
         }
       />
-      <Route
-        path="/admin/payouts"
-        element={
-          <ProtectedRoute requiredRole="admin">
-            <AdminPayoutsPage />
-          </ProtectedRoute>
-        }
-      />
+      <Route path="/admin/payouts" element={<ProtectedRoute requiredRole="admin"><AdminPayoutsPage /></ProtectedRoute>} />
+      <Route path="/admin/payouts-new" element={<Navigate to="/admin/payouts" replace />} />
 
 
       <Route

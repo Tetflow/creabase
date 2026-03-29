@@ -4807,46 +4807,72 @@ async def resolve_dispute(
 @api_router.get("/admin/payouts")
 async def get_all_payouts(
     days: int = 30,
+    status: str = None,
     current_user: User = Depends(get_current_user)
 ):
-    """Get all payout transactions for admin"""
+    """Get all payout requests for admin"""
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Admin access required")
     
+    # Build query
+    query = {}
+    
     # Calculate date range
-    if days == 0 or days == 999:  # "all" time
-        start_date = datetime(2020, 1, 1, tzinfo=timezone.utc)
-    else:
+    if days and days != 0 and days != 999:  # "all" time
         start_date = datetime.now(timezone.utc) - timedelta(days=days)
+        query["created_at"] = {"$gte": start_date.isoformat()}
     
-    # Get all payout transactions
-    payouts = await db.wallet_transactions.find({
-        "transaction_type": "payout",
-        "created_at": {"$gte": start_date.isoformat()}
-    }, {"_id": 0}).to_list(10000)
+    # Filter by status if provided
+    if status:
+        query["status"] = status
     
-    # Enrich with user and project details
+    # Get all payout requests
+    payouts = await db.payout_requests.find(query, {"_id": 0}).to_list(10000)
+    
+    # Enrich with creator details, wallet balance, and bank details
     for payout in payouts:
-        # Get creator name
-        user = await db.users.find_one({"user_id": payout["user_id"]}, {"_id": 0, "name": 1, "email": 1})
-        if user:
-            payout["creator_name"] = user.get("name", "Unknown")
-            payout["creator_email"] = user.get("email", "N/A")
+        user_id = payout.get("user_id") or payout.get("creator_id")
         
-        # Try to extract project title from description
-        if "project" in payout.get("description", "").lower():
-            # Description format: "Your work on 'Project Title' has been approved..."
-            desc = payout.get("description", "")
-            if "'" in desc:
-                start = desc.find("'")
-                end = desc.find("'", start + 1)
-                if start != -1 and end != -1:
-                    payout["project_title"] = desc[start + 1:end]
+        # Get creator info
+        creator = await db.creators.find_one({"user_id": user_id}, {"_id": 0})
+        if creator:
+            payout["creator_name"] = creator.get("name", "Unknown")
+            payout["creator_email"] = creator.get("email", "N/A")
+            
+            # Get bank details from creator profile
+            payout["bank_details"] = {
+                "account_holder": creator.get("bank_account_holder", "N/A"),
+                "bank_name": creator.get("bank_name", "N/A"),
+                "account_number": creator.get("bank_account_number", "****"),
+                "ifsc_code": creator.get("bank_ifsc_code", "N/A")
+            }
+        else:
+            # Fallback to users collection
+            user = await db.users.find_one({"user_id": user_id}, {"_id": 0, "name": 1, "email": 1})
+            if user:
+                payout["creator_name"] = user.get("name", "Unknown")
+                payout["creator_email"] = user.get("email", "N/A")
+            payout["bank_details"] = {
+                "account_holder": "N/A",
+                "bank_name": "N/A",
+                "account_number": "****",
+                "ifsc_code": "N/A"
+            }
+        
+        # Get wallet balance
+        wallet = await db.wallets.find_one({"user_id": user_id}, {"_id": 0})
+        if wallet:
+            payout["wallet_balance"] = wallet.get("balance", 0)
+            payout["sufficient_balance"] = wallet.get("balance", 0) >= payout.get("amount", 0)
+        else:
+            payout["wallet_balance"] = 0
+            payout["sufficient_balance"] = False
     
     # Sort by created_at descending
     payouts.sort(key=lambda x: x.get("created_at", ""), reverse=True)
     
     return payouts
+
 
 @api_router.get("/admin/payout-stats")
 async def get_payout_stats(
