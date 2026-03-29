@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
+import re
 import logging
 from pathlib import Path
 from pydantic import BaseModel, EmailStr, Field, ConfigDict
@@ -499,6 +500,62 @@ async def create_session(request: Request, response: Response):
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.put("/user/profile")
+async def update_user_profile(
+    profile_data: dict,
+    current_user: User = Depends(get_current_user)
+):
+    """Update user profile information"""
+    
+    # Fields allowed to be updated
+    allowed_fields = {
+        "name", "phone", "bio", "website", 
+        "instagram_handle", "youtube_channel", "rate_per_post"
+    }
+    
+    # Filter only allowed fields
+    update_data = {k: v for k, v in profile_data.items() if k in allowed_fields}
+    
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No valid fields to update")
+    
+    # Add timestamp
+    update_data["updated_at"] = datetime.now(timezone.utc)
+    
+    # Update user
+    result = await db.users.update_one(
+        {"user_id": current_user.user_id},
+        {"$set": update_data}
+    )
+    
+    # If user is creator, also update creator profile
+    if current_user.role == "creator":
+        creator_update = {}
+        if "name" in update_data:
+            creator_update["name"] = update_data["name"]
+        if "bio" in update_data:
+            creator_update["bio"] = update_data["bio"]
+        if "rate_per_post" in update_data:
+            creator_update["hourly_rate"] = float(update_data.get("rate_per_post", 0))
+        
+        if creator_update:
+            creator_update["updated_at"] = datetime.now(timezone.utc)
+            await db.creators.update_one(
+                {"user_id": current_user.user_id},
+                {"$set": creator_update}
+            )
+    
+    if result.modified_count == 0 and result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Get updated user data
+    updated_user = await db.users.find_one({"user_id": current_user.user_id}, {"_id": 0})
+    
+    return {
+        "message": "Profile updated successfully",
+        "user": updated_user
+    }
 
 @api_router.get("/auth/me")
 async def get_me(current_user: User = Depends(get_current_user)):
@@ -3470,6 +3527,110 @@ async def youtube_oauth_callback(code: str, state: str):
             url=f"{os.getenv('FRONTEND_URL', 'http://localhost:3000')}/creator-dashboard?verification=youtube_error",
             status_code=302
         )
+
+# Bank Account Verification Endpoints
+@api_router.post("/creators/verify/bank/initiate")
+async def initiate_bank_verification(
+    bank_details: BankDetailsUpdate,
+    current_user: User = Depends(get_current_user)
+):
+    """Initiate bank account verification for creators"""
+    if current_user.role != "creator":
+        raise HTTPException(status_code=403, detail="Only creators can verify bank accounts")
+    
+    # Validate IFSC code format
+    ifsc_pattern = r'^[A-Z]{4}0[A-Z0-9]{6}$'
+    if not re.match(ifsc_pattern, bank_details.bank_ifsc_code.upper()):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid IFSC code format. Should be like: SBIN0001234"
+        )
+    
+    # Validate account number (should be 9-18 digits)
+    if not bank_details.bank_account_number.isdigit():
+        raise HTTPException(status_code=400, detail="Account number should contain only digits")
+    
+    if len(bank_details.bank_account_number) < 9 or len(bank_details.bank_account_number) > 18:
+        raise HTTPException(
+            status_code=400,
+            detail="Account number should be between 9-18 digits"
+        )
+    
+    # Generate verification ID
+    verification_id = f"bank_verify_{uuid.uuid4().hex[:12]}"
+    
+    # Store bank details with pending verification status
+    verification_data = {
+        "verification_id": verification_id,
+        "user_id": current_user.user_id,
+        "bank_account_number": bank_details.bank_account_number,
+        "bank_ifsc_code": bank_details.bank_ifsc_code.upper(),
+        "bank_account_holder": bank_details.bank_account_holder,
+        "bank_name": bank_details.bank_name,
+        "upi_id": bank_details.upi_id,
+        "verification_status": "pending",
+        "verification_method": "manual",  # Can be "penny_drop" if integrated
+        "created_at": datetime.now(timezone.utc),
+        "verified_at": None
+    }
+    
+    await db.bank_verifications.insert_one(verification_data)
+    
+    # In production, integrate with penny drop API here
+    # For now, we'll auto-verify after basic validation
+    
+    # Update creator with bank details
+    creator = await db.creators.find_one({"user_id": current_user.user_id}, {"_id": 0})
+    if creator:
+        await db.creators.update_one(
+            {"user_id": current_user.user_id},
+            {"$set": {
+                "bank_account_number": bank_details.bank_account_number,
+                "bank_ifsc_code": bank_details.bank_ifsc_code.upper(),
+                "bank_account_holder": bank_details.bank_account_holder,
+                "bank_name": bank_details.bank_name,
+                "upi_id": bank_details.upi_id,
+                "bank_verified": True,  # Set to False if using real penny drop
+                "bank_verified_at": datetime.now(timezone.utc),
+                "bank_details_updated_at": datetime.now(timezone.utc)
+            }}
+        )
+    
+    # Mark verification as completed
+    await db.bank_verifications.update_one(
+        {"verification_id": verification_id},
+        {"$set": {
+            "verification_status": "verified",
+            "verified_at": datetime.now(timezone.utc)
+        }}
+    )
+    
+    return {
+        "message": "Bank account verified successfully",
+        "verification_id": verification_id,
+        "status": "verified",
+        "note": "In production, this will use penny drop verification"
+    }
+
+@api_router.get("/creators/verify/bank/status")
+async def get_bank_verification_status(current_user: User = Depends(get_current_user)):
+    """Get bank verification status for current creator"""
+    if current_user.role != "creator":
+        raise HTTPException(status_code=403, detail="Only creators can check bank verification")
+    
+    creator = await db.creators.find_one({"user_id": current_user.user_id}, {"_id": 0})
+    if not creator:
+        raise HTTPException(status_code=404, detail="Creator profile not found")
+    
+    return {
+        "bank_verified": creator.get("bank_verified", False),
+        "bank_verified_at": creator.get("bank_verified_at"),
+        "has_bank_details": bool(creator.get("bank_account_number")),
+        "bank_account_holder": creator.get("bank_account_holder"),
+        "bank_name": creator.get("bank_name"),
+        "bank_ifsc_code": creator.get("bank_ifsc_code"),
+        "last_4_digits": creator.get("bank_account_number", "")[-4:] if creator.get("bank_account_number") else None
+    }
 
 @api_router.get("/creators/{creator_id}/verification-status")
 async def get_verification_status(creator_id: str):

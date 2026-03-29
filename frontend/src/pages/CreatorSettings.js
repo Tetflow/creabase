@@ -1,31 +1,52 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Settings, User, Mail, Phone, Instagram, Youtube, Globe, Award } from 'lucide-react';
+import { Settings, User, Mail, Phone, Instagram, Youtube, Globe, Award, CheckCircle, AlertCircle, CreditCard, Building } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 
 const CreatorSettings = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('profile');
   const [loading, setLoading] = useState(false);
+  const [verifying, setVerifying] = useState({ instagram: false, youtube: false, bank: false });
+  const [showBankModal, setShowBankModal] = useState(false);
   const [profile, setProfile] = useState({
     name: '',
     email: '',
     phone: '',
     bio: '',
-    instagram_handle: '',
-    youtube_channel: '',
     website: '',
     rate_per_post: '',
   });
 
+  const [verificationStatus, setVerificationStatus] = useState({
+    instagram_verified: false,
+    instagram_handle: '',
+    instagram_followers: 0,
+    youtube_verified: false,
+    youtube_channel_name: '',
+    youtube_subscribers: 0,
+    bank_verified: false,
+    bank_account_holder: '',
+    bank_name: '',
+    bank_last_4: ''
+  });
+
+  const [bankDetails, setBankDetails] = useState({
+    bank_account_number: '',
+    bank_ifsc_code: '',
+    bank_account_holder: '',
+    bank_name: '',
+    upi_id: ''
+  });
+
   useEffect(() => {
     fetchProfile();
+    fetchVerificationStatus();
   }, []);
 
   const fetchProfile = async () => {
     try {
-      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/user/me`, {
+      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/auth/me`, {
         credentials: 'include'
       });
       if (response.ok) {
@@ -35,14 +56,50 @@ const CreatorSettings = () => {
           email: data.email || '',
           phone: data.phone || '',
           bio: data.bio || '',
-          instagram_handle: data.instagram_handle || '',
-          youtube_channel: data.youtube_channel || '',
           website: data.website || '',
           rate_per_post: data.rate_per_post || '',
         });
       }
     } catch (error) {
       console.error('Error fetching profile:', error);
+    }
+  };
+
+  const fetchVerificationStatus = async () => {
+    try {
+      // Get user data for social verification
+      const userRes = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/auth/me`, {
+        credentials: 'include'
+      });
+      if (userRes.ok) {
+        const userData = await userRes.json();
+        setVerificationStatus(prev => ({
+          ...prev,
+          instagram_verified: userData.instagram_verified || false,
+          instagram_handle: userData.instagram_handle || '',
+          instagram_followers: userData.instagram_followers || 0,
+          youtube_verified: userData.youtube_verified || false,
+          youtube_channel_name: userData.youtube_channel_name || '',
+          youtube_subscribers: userData.youtube_subscribers || 0,
+        }));
+      }
+
+      // Get bank verification status
+      const bankRes = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/creators/verify/bank/status`, {
+        credentials: 'include'
+      });
+      if (bankRes.ok) {
+        const bankData = await bankRes.json();
+        setVerificationStatus(prev => ({
+          ...prev,
+          bank_verified: bankData.bank_verified || false,
+          bank_account_holder: bankData.bank_account_holder || '',
+          bank_name: bankData.bank_name || '',
+          bank_last_4: bankData.last_4_digits || ''
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching verification status:', error);
     }
   };
 
@@ -60,14 +117,108 @@ const CreatorSettings = () => {
 
       if (response.ok) {
         alert('Profile updated successfully!');
+        await fetchProfile(); // Refresh to show updated data
       } else {
-        alert('Failed to update profile');
+        const error = await response.json();
+        alert(`Failed to update profile: ${error.detail || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Error updating profile:', error);
       alert('Error updating profile');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleInstagramVerification = async () => {
+    setVerifying({ ...verifying, instagram: true });
+    try {
+      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/creators/verify/instagram/initiate`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Redirect to Instagram OAuth
+        window.location.href = data.auth_url;
+      } else {
+        const error = await response.json();
+        alert(error.detail || 'Instagram verification not configured');
+      }
+    } catch (error) {
+      console.error('Error initiating Instagram verification:', error);
+      alert('Error starting Instagram verification');
+    } finally {
+      setVerifying({ ...verifying, instagram: false });
+    }
+  };
+
+  const handleYouTubeVerification = async () => {
+    setVerifying({ ...verifying, youtube: true });
+    try {
+      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/creators/verify/youtube/initiate`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Redirect to YouTube OAuth
+        window.location.href = data.auth_url;
+      } else {
+        const error = await response.json();
+        alert(error.detail || 'YouTube verification not configured');
+      }
+    } catch (error) {
+      console.error('Error initiating YouTube verification:', error);
+      alert('Error starting YouTube verification');
+    } finally {
+      setVerifying({ ...verifying, youtube: false });
+    }
+  };
+
+  const handleBankVerification = async () => {
+    // Validate bank details
+    if (!bankDetails.bank_account_number || !bankDetails.bank_ifsc_code || 
+        !bankDetails.bank_account_holder || !bankDetails.bank_name) {
+      alert('Please fill all required bank details');
+      return;
+    }
+
+    setVerifying({ ...verifying, bank: true });
+    try {
+      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/creators/verify/bank/initiate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(bankDetails),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        alert(data.message || 'Bank account verified successfully!');
+        setShowBankModal(false);
+        await fetchVerificationStatus(); // Refresh verification status
+        // Clear form
+        setBankDetails({
+          bank_account_number: '',
+          bank_ifsc_code: '',
+          bank_account_holder: '',
+          bank_name: '',
+          upi_id: ''
+        });
+      } else {
+        const error = await response.json();
+        alert(`Verification failed: ${error.detail || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error verifying bank account:', error);
+      alert('Error verifying bank account');
+    } finally {
+      setVerifying({ ...verifying, bank: false });
     }
   };
 
@@ -108,12 +259,13 @@ const CreatorSettings = () => {
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#4A4A4A]" strokeWidth={2} />
                 <Input
                   value={profile.email}
-                  onChange={(e) => setProfile({...profile, email: e.target.value})}
+                  disabled
                   placeholder="your@email.com"
                   type="email"
-                  className="border-2 border-[#0A0A0A] h-12 pl-11"
+                  className="border-2 border-[#0A0A0A] h-12 pl-11 bg-gray-50"
                 />
               </div>
+              <p className="text-xs text-[#4A4A4A] mt-1">Email cannot be changed</p>
             </div>
 
             <div>
@@ -141,37 +293,117 @@ const CreatorSettings = () => {
               <p className="text-xs text-[#4A4A4A] mt-1">{profile.bio?.length || 0}/500 characters</p>
             </div>
 
-            {/* Social Media Links */}
+            {/* Social Media Verification - OAuth Based */}
             <div className="border-t-2 border-[#0A0A0A] pt-6">
-              <h3 className="text-lg font-black mb-4">Social Media</h3>
+              <h3 className="text-lg font-black mb-4">Social Media Verification</h3>
+              <p className="text-sm text-[#4A4A4A] mb-4">Verify your social accounts to build trust and showcase your reach</p>
               
               <div className="space-y-4">
-                <div>
-                  <label className="block font-bold mb-2 text-sm">Instagram Handle</label>
-                  <div className="relative">
-                    <Instagram className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#4A4A4A]" strokeWidth={2} />
-                    <Input
-                      value={profile.instagram_handle}
-                      onChange={(e) => setProfile({...profile, instagram_handle: e.target.value})}
-                      placeholder="@yourusername"
-                      className="border-2 border-[#0A0A0A] h-12 pl-11"
-                    />
+                {/* Instagram Verification */}
+                <div className="border-2 border-[#0A0A0A] rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Instagram className="w-6 h-6 text-pink-600" strokeWidth={2} />
+                      <div>
+                        <p className="font-bold">Instagram</p>
+                        {verificationStatus.instagram_verified ? (
+                          <p className="text-sm text-green-600 flex items-center gap-1">
+                            <CheckCircle className="w-4 h-4" />
+                            @{verificationStatus.instagram_handle} ({verificationStatus.instagram_followers.toLocaleString()} followers)
+                          </p>
+                        ) : (
+                          <p className="text-sm text-[#4A4A4A]">Not verified</p>
+                        )}
+                      </div>
+                    </div>
+                    <Button
+                      onClick={handleInstagramVerification}
+                      disabled={verifying.instagram || verificationStatus.instagram_verified}
+                      className={`${
+                        verificationStatus.instagram_verified 
+                          ? 'bg-green-500' 
+                          : 'bg-pink-500 hover:bg-pink-600'
+                      } text-white border-2 border-[#0A0A0A] shadow-[4px_4px_0px_0px_rgba(10,10,10,1)] font-bold`}
+                    >
+                      {verifying.instagram ? 'Verifying...' : verificationStatus.instagram_verified ? 'Verified ✓' : 'Verify'}
+                    </Button>
                   </div>
                 </div>
 
-                <div>
-                  <label className="block font-bold mb-2 text-sm">YouTube Channel</label>
-                  <div className="relative">
-                    <Youtube className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#4A4A4A]" strokeWidth={2} />
-                    <Input
-                      value={profile.youtube_channel}
-                      onChange={(e) => setProfile({...profile, youtube_channel: e.target.value})}
-                      placeholder="Channel URL or @handle"
-                      className="border-2 border-[#0A0A0A] h-12 pl-11"
-                    />
+                {/* YouTube Verification */}
+                <div className="border-2 border-[#0A0A0A] rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Youtube className="w-6 h-6 text-red-600" strokeWidth={2} />
+                      <div>
+                        <p className="font-bold">YouTube</p>
+                        {verificationStatus.youtube_verified ? (
+                          <p className="text-sm text-green-600 flex items-center gap-1">
+                            <CheckCircle className="w-4 h-4" />
+                            {verificationStatus.youtube_channel_name} ({verificationStatus.youtube_subscribers.toLocaleString()} subscribers)
+                          </p>
+                        ) : (
+                          <p className="text-sm text-[#4A4A4A]">Not verified</p>
+                        )}
+                      </div>
+                    </div>
+                    <Button
+                      onClick={handleYouTubeVerification}
+                      disabled={verifying.youtube || verificationStatus.youtube_verified}
+                      className={`${
+                        verificationStatus.youtube_verified 
+                          ? 'bg-green-500' 
+                          : 'bg-red-500 hover:bg-red-600'
+                      } text-white border-2 border-[#0A0A0A] shadow-[4px_4px_0px_0px_rgba(10,10,10,1)] font-bold`}
+                    >
+                      {verifying.youtube ? 'Verifying...' : verificationStatus.youtube_verified ? 'Verified ✓' : 'Verify'}
+                    </Button>
                   </div>
                 </div>
+              </div>
+            </div>
 
+            {/* Bank Account Verification */}
+            <div className="border-t-2 border-[#0A0A0A] pt-6">
+              <h3 className="text-lg font-black mb-4">Bank Account Verification</h3>
+              <p className="text-sm text-[#4A4A4A] mb-4">Verify your bank account to receive payments securely</p>
+              
+              <div className="border-2 border-[#0A0A0A] rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Building className="w-6 h-6 text-blue-600" strokeWidth={2} />
+                    <div>
+                      <p className="font-bold">Bank Account</p>
+                      {verificationStatus.bank_verified ? (
+                        <p className="text-sm text-green-600 flex items-center gap-1">
+                          <CheckCircle className="w-4 h-4" />
+                          {verificationStatus.bank_account_holder} - {verificationStatus.bank_name} (****{verificationStatus.bank_last_4})
+                        </p>
+                      ) : (
+                        <p className="text-sm text-[#4A4A4A]">Not verified</p>
+                      )}
+                    </div>
+                  </div>
+                  <Button
+                    onClick={() => setShowBankModal(true)}
+                    disabled={verificationStatus.bank_verified}
+                    className={`${
+                      verificationStatus.bank_verified 
+                        ? 'bg-green-500' 
+                        : 'bg-blue-500 hover:bg-blue-600'
+                    } text-white border-2 border-[#0A0A0A] shadow-[4px_4px_0px_0px_rgba(10,10,10,1)] font-bold`}
+                  >
+                    {verificationStatus.bank_verified ? 'Verified ✓' : 'Verify'}
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* Website */}
+            <div className="border-t-2 border-[#0A0A0A] pt-6">
+              <h3 className="text-lg font-black mb-4">Additional Information</h3>
+              
+              <div className="space-y-4">
                 <div>
                   <label className="block font-bold mb-2 text-sm">Website</label>
                   <div className="relative">
@@ -227,6 +459,95 @@ const CreatorSettings = () => {
           </div>
         </div>
       </div>
+
+      {/* Bank Details Modal */}
+      {showBankModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white border-2 border-[#0A0A0A] shadow-[8px_8px_0px_0px_rgba(10,10,10,1)] rounded-xl p-6 max-w-md w-full">
+            <div className="flex items-center gap-3 mb-4">
+              <CreditCard className="w-6 h-6" strokeWidth={3} />
+              <h3 className="text-xl font-black">Verify Bank Account</h3>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block font-bold mb-2 text-sm">Account Holder Name</label>
+                <Input
+                  value={bankDetails.bank_account_holder}
+                  onChange={(e) => setBankDetails({...bankDetails, bank_account_holder: e.target.value})}
+                  placeholder="John Doe"
+                  className="border-2 border-[#0A0A0A] h-12"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold mb-2 text-sm">Account Number</label>
+                <Input
+                  value={bankDetails.bank_account_number}
+                  onChange={(e) => setBankDetails({...bankDetails, bank_account_number: e.target.value})}
+                  placeholder="1234567890"
+                  className="border-2 border-[#0A0A0A] h-12"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold mb-2 text-sm">IFSC Code</label>
+                <Input
+                  value={bankDetails.bank_ifsc_code}
+                  onChange={(e) => setBankDetails({...bankDetails, bank_ifsc_code: e.target.value.toUpperCase()})}
+                  placeholder="SBIN0001234"
+                  className="border-2 border-[#0A0A0A] h-12"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold mb-2 text-sm">Bank Name</label>
+                <Input
+                  value={bankDetails.bank_name}
+                  onChange={(e) => setBankDetails({...bankDetails, bank_name: e.target.value})}
+                  placeholder="State Bank of India"
+                  className="border-2 border-[#0A0A0A] h-12"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold mb-2 text-sm">UPI ID (Optional)</label>
+                <Input
+                  value={bankDetails.upi_id}
+                  onChange={(e) => setBankDetails({...bankDetails, upi_id: e.target.value})}
+                  placeholder="yourname@upi"
+                  className="border-2 border-[#0A0A0A] h-12"
+                />
+              </div>
+
+              <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-3">
+                <p className="text-xs text-blue-800 flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                  Your bank details will be securely verified. This information is required to receive payments.
+                </p>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <Button
+                  onClick={handleBankVerification}
+                  disabled={verifying.bank}
+                  className="flex-1 bg-blue-500 hover:bg-blue-600 text-white border-2 border-[#0A0A0A] shadow-[4px_4px_0px_0px_rgba(10,10,10,1)] font-bold"
+                >
+                  {verifying.bank ? 'Verifying...' : 'Verify Account'}
+                </Button>
+                <Button
+                  onClick={() => setShowBankModal(false)}
+                  disabled={verifying.bank}
+                  variant="outline"
+                  className="border-2 border-[#0A0A0A] shadow-[4px_4px_0px_0px_rgba(10,10,10,1)] font-bold"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
