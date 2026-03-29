@@ -97,13 +97,20 @@ export default function Header() {
                 </div>
                 
                 {/* Subscription Button - Only for Business and Creator */}
-                {user.role !== 'admin' && user.subscription_status !== 'active' && (
-                  <button
-                    onClick={() => navigate('/pricing')}
-                    className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white px-4 py-2 rounded-lg font-bold border-2 border-black shadow-brutal-sm hover:shadow-none transition-all text-sm"
-                  >
-                    ⚡ Subscribe
-                  </button>
+                {user.role !== 'admin' && (
+                  user.subscription_status === 'active' ? (
+                    <div className="bg-gradient-to-r from-green-400 to-emerald-500 text-white px-4 py-2 rounded-lg font-bold border-2 border-black shadow-brutal-sm text-sm flex items-center gap-2">
+                      <span>✓</span>
+                      <span>Subscribed</span>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => navigate('/pricing')}
+                      className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white px-4 py-2 rounded-lg font-bold border-2 border-black shadow-brutal-sm hover:shadow-none hover:-translate-y-0.5 transition-all text-sm"
+                    >
+                      ⚡ Subscribe
+                    </button>
+                  )
                 )}
 
                 {/* User Dropdown */}
@@ -119,7 +126,29 @@ export default function Header() {
 
                   {/* User Dropdown Menu */}
                   {showUserDropdown && (
-                    <div className="absolute right-0 mt-2 w-48 bg-white border-2 border-black shadow-brutal rounded-lg overflow-hidden">
+                    <div className="absolute right-0 mt-2 w-56 bg-white border-2 border-black shadow-brutal rounded-lg overflow-hidden">
+                      {/* Subscription Status */}
+                      {user.role !== 'admin' && (
+                        <div className={`px-4 py-2 text-xs font-bold flex items-center justify-between ${
+                          user.subscription_status === 'active' 
+                            ? 'bg-green-50 text-green-700 border-b-2 border-green-200' 
+                            : 'bg-gray-50 text-gray-600 border-b-2 border-gray-200'
+                        }`}>
+                          <span>{user.subscription_status === 'active' ? '✓ Premium' : 'Free Plan'}</span>
+                          {user.subscription_status !== 'active' && (
+                            <button
+                              onClick={() => {
+                                navigate('/pricing');
+                                setShowUserDropdown(false);
+                              }}
+                              className="text-purple-600 hover:text-purple-700 underline"
+                            >
+                              Upgrade
+                            </button>
+                          )}
+                        </div>
+                      )}
+                      
                       <button
                         onClick={() => {
                           if (user.role === 'business') {
@@ -233,16 +262,23 @@ export default function Header() {
                 ))}
                 
                 {/* Subscription Button */}
-                {user.role !== 'admin' && user.subscription_status !== 'active' && (
-                  <button
-                    onClick={() => {
-                      navigate('/pricing');
-                      setShowMenu(false);
-                    }}
-                    className="w-full bg-gradient-to-r from-purple-500 to-indigo-600 text-white px-4 py-3 rounded-lg font-bold border-2 border-black shadow-brutal-sm"
-                  >
-                    ⚡ Subscribe
-                  </button>
+                {user.role !== 'admin' && (
+                  user.subscription_status === 'active' ? (
+                    <div className="w-full bg-gradient-to-r from-green-400 to-emerald-500 text-white px-4 py-3 rounded-lg font-bold border-2 border-black shadow-brutal-sm flex items-center justify-center gap-2">
+                      <span>✓</span>
+                      <span>Subscribed</span>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        navigate('/pricing');
+                        setShowMenu(false);
+                      }}
+                      className="w-full bg-gradient-to-r from-purple-500 to-indigo-600 text-white px-4 py-3 rounded-lg font-bold border-2 border-black shadow-brutal-sm"
+                    >
+                      ⚡ Subscribe
+                    </button>
+                  )
                 )}
 
                 {/* Profile/Settings */}
