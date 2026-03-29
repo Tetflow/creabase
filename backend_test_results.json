@@ -1,0 +1,57 @@
+{
+  "summary": {
+    "passed": 8,
+    "total": 8,
+    "success_rate": 1.0
+  },
+  "results": [
+    {
+      "test": "Create Test User",
+      "success": true,
+      "details": "Created user test_creator_9cf90351 with session token",
+      "timestamp": "2026-03-29T18:19:12.167824"
+    },
+    {
+      "test": "Profile Update (Empty Rate)",
+      "success": true,
+      "details": "Successfully saved profile with empty rate field",
+      "timestamp": "2026-03-29T18:19:12.273193"
+    },
+    {
+      "test": "Profile Update (Valid Rate)",
+      "success": true,
+      "details": "Successfully saved profile with rate=5000",
+      "timestamp": "2026-03-29T18:19:12.403246"
+    },
+    {
+      "test": "Auth Me",
+      "success": true,
+      "details": "Profile data verified: name=Test Creator Pro, bio=Testing profile update with valid rate",
+      "timestamp": "2026-03-29T18:19:12.545757"
+    },
+    {
+      "test": "Bank Verification Initiate",
+      "success": true,
+      "details": "Bank verification successful with ID: bank_verify_ca17088d2796",
+      "timestamp": "2026-03-29T18:19:12.690336"
+    },
+    {
+      "test": "Bank Verification Status",
+      "success": true,
+      "details": "Bank verified status confirmed: {'bank_verified': True, 'bank_verified_at': '2026-03-29T18:19:12.671000', 'has_bank_details': True, 'bank_account_holder': 'Test Creator Pro', 'bank_name': 'State Bank of India', 'bank_ifsc_code': 'SBIN0001234', 'last_4_digits': '3456'}",
+      "timestamp": "2026-03-29T18:19:12.801705"
+    },
+    {
+      "test": "Instagram OAuth (503)",
+      "success": true,
+      "details": "Correctly returned 503 with proper error message: {'detail': 'Instagram OAuth not configured. Please contact administrator to add API credentials.'}",
+      "timestamp": "2026-03-29T18:19:12.948321"
+    },
+    {
+      "test": "YouTube OAuth (503)",
+      "success": true,
+      "details": "Correctly returned 503 with proper error message: {'detail': 'YouTube OAuth not configured. Please contact administrator to add API credentials.'}",
+      "timestamp": "2026-03-29T18:19:13.078318"
+    }
+  ]
+}
