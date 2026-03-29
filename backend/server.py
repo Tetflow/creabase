@@ -1149,6 +1149,22 @@ async def pay_project(project_id: str, current_user: User = Depends(get_current_
 
 @api_router.post("/projects/{project_id}/deliver")
 async def deliver_project(project_id: str, delivery_notes: str, current_user: User = Depends(get_current_user)):
+    """Creator delivers project - requires creator role and project ownership"""
+    if current_user.role != "creator":
+        raise HTTPException(status_code=403, detail="Only creators can deliver projects")
+    
+    project = await db.projects.find_one({"project_id": project_id}, {"_id": 0})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Verify creator owns this project
+    creator = await db.creators.find_one({"submitted_by": current_user.user_id}, {"_id": 0})
+    if not creator or project["creator_id"] != creator["creator_id"]:
+        raise HTTPException(status_code=403, detail="Not authorized for this project")
+    
+    if project["status"] not in ["in_progress", "active"]:
+        raise HTTPException(status_code=400, detail=f"Cannot deliver project with status: {project['status']}")
+    
     await db.projects.update_one(
         {"project_id": project_id},
         {"$set": {"status": "delivered", "delivery_notes": delivery_notes, "delivered_at": datetime.now(timezone.utc)}}
@@ -3854,13 +3870,65 @@ async def get_wallet_details(
         raise HTTPException(status_code=500, detail="Failed to fetch wallet details")
 
 @api_router.get("/admin/wallets/{user_id}/transactions")
-class WalletAdjustment(BaseModel):
+async def get_user_wallet_transactions(
+    user_id: str,
+    limit: int = 50,
+    current_user: User = Depends(get_current_user)
+):
+    """Get wallet transactions for a specific user - Admin only"""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    transactions = await db.wallet_transactions.find(
+        {"user_id": user_id},
+        {"_id": 0}
+    ).sort("created_at", -1).limit(limit).to_list(limit)
+    
+    return {"transactions": transactions, "count": len(transactions)}
+
+
+class WalletAdjustmentAdmin(BaseModel):
     amount: float
     adjustment_type: str  # "credit" or "debit"
     reason: str
     notes: Optional[str] = None
 
 @api_router.post("/admin/wallets/{user_id}/adjust")
+async def adjust_user_wallet(
+    user_id: str,
+    adjustment: WalletAdjustmentAdmin,
+    current_user: User = Depends(get_current_user)
+):
+    """Adjust wallet balance for a user - Admin only"""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    wallet = await get_or_create_wallet(user_id)
+    
+    operation = "credit" if adjustment.adjustment_type == "credit" else "debit"
+    new_balance = await update_wallet_balance(user_id, adjustment.amount, operation)
+    
+    await add_wallet_transaction(
+        wallet["wallet_id"],
+        user_id,
+        adjustment.amount,
+        f"admin_{adjustment.adjustment_type}",
+        f"Admin adjustment: {adjustment.reason}",
+        f"admin_{current_user.user_id}",
+        {
+            "adjusted_by": current_user.user_id,
+            "adjustment_type": adjustment.adjustment_type,
+            "reason": adjustment.reason,
+            "notes": adjustment.notes
+        }
+    )
+    
+    return {
+        "message": f"Wallet {adjustment.adjustment_type}ed successfully",
+        "new_balance": new_balance,
+        "amount": adjustment.amount
+    }
+
 @api_router.get("/admin/wallet-adjustments")
 async def get_wallet_adjustments(
     limit: int = 100,
