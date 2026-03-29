@@ -1,0 +1,93 @@
+{
+  "summary": {
+    "passed": 12,
+    "total": 12,
+    "success_rate": 1.0
+  },
+  "results": [
+    {
+      "test": "Admin Login",
+      "success": true,
+      "details": "Successfully logged in as admin: admin@creabase.com",
+      "timestamp": "2026-03-29T19:16:30.288358"
+    },
+    {
+      "test": "Get All Users",
+      "success": true,
+      "details": "Retrieved 19 users, test_user_id: test_business_553b811f",
+      "timestamp": "2026-03-29T19:16:30.532463"
+    },
+    {
+      "test": "Get All Wallets",
+      "success": true,
+      "details": "Retrieved 19 wallets",
+      "timestamp": "2026-03-29T19:16:30.656950"
+    },
+    {
+      "test": "Wallet Credit",
+      "success": true,
+      "details": "Initial balance: \u20b911000.0",
+      "timestamp": "2026-03-29T19:16:30.781837"
+    },
+    {
+      "test": "Wallet Credit",
+      "success": true,
+      "details": "Successfully credited \u20b91000. Balance: 11000.0 \u2192 12000.0",
+      "timestamp": "2026-03-29T19:16:31.069608"
+    },
+    {
+      "test": "Wallet Debit",
+      "success": true,
+      "details": "Initial balance: \u20b912000.0",
+      "timestamp": "2026-03-29T19:16:31.187167"
+    },
+    {
+      "test": "Wallet Debit",
+      "success": true,
+      "details": "Successfully debited \u20b9500. Balance: 12000.0 \u2192 11500.0",
+      "timestamp": "2026-03-29T19:16:31.426871"
+    },
+    {
+      "test": "Get Wallet Transactions",
+      "success": true,
+      "details": "Retrieved 6 transactions (test transactions may not be visible)",
+      "timestamp": "2026-03-29T19:16:31.528780"
+    },
+    {
+      "test": "User Restriction",
+      "success": true,
+      "details": "Successfully restricted user: suspend",
+      "timestamp": "2026-03-29T19:16:31.799082"
+    },
+    {
+      "test": "User Unrestriction",
+      "success": true,
+      "details": "Successfully unrestricted user",
+      "timestamp": "2026-03-29T19:16:32.032053"
+    },
+    {
+      "test": "Fee Configuration",
+      "success": true,
+      "details": "Retrieved platform config (may not contain fees): ['config']",
+      "timestamp": "2026-03-29T19:16:32.136229"
+    },
+    {
+      "test": "Disputes List",
+      "success": true,
+      "details": "Retrieved 0 disputes",
+      "timestamp": "2026-03-29T19:16:32.235602"
+    },
+    {
+      "test": "Payouts List",
+      "success": true,
+      "details": "Retrieved 0 payouts",
+      "timestamp": "2026-03-29T19:16:32.334926"
+    },
+    {
+      "test": "Analytics",
+      "success": true,
+      "details": "Retrieved analytics data: ['period_days', 'users', 'projects', 'premium', 'financial']",
+      "timestamp": "2026-03-29T19:16:32.459883"
+    }
+  ]
+}
