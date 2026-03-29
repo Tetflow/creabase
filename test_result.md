@@ -102,6 +102,37 @@ Current Iteration: 5 (IN PROGRESS)
 - ✅ Added security: Only account owners can verify (no fraud possible)
 - ✅ All verification data persists and displays correctly
 
+**Iteration 7 - Final Verification** (March 29, 2026):
+- Tested: Final verification of both critical bug fixes
+- **Test User**: Created via /api/test/create-test-user
+- **Results**: ✅ 1/2 BUGS FIXED, ❌ 1/2 BUGS NOT FIXED
+
+**Bug Fix Status:**
+1. ✅ **BUG #1 FIXED** - Profile Save with Empty Rate Field:
+   - Backend fix verified: Lines 539-544 in server.py handle empty string/None correctly
+   - Code: `if rate_value == "" or rate_value is None: rate_value = 0`
+   - Test Result: Successfully saved profile with empty rate field (no 500 error)
+   - Data persistence: All fields persist correctly after page refresh
+   - **Status**: ✅ FULLY WORKING
+
+2. ❌ **BUG #2 NOT FIXED** - OAuth Double json() Error:
+   - Error still occurring: "TypeError: Failed to execute 'json' on 'Response': body stream already read"
+   - Affects both Instagram and YouTube verification buttons
+   - Error location: bundle.js:40060 (Instagram), bundle.js:40093 (YouTube)
+   - **Source Code Analysis**: 
+     * Checked /app/frontend/src/pages/CreatorSettings.js lines 133-183
+     * Source code appears CORRECT - json() only called once per function (line 142 for Instagram, line 168 for YouTube)
+     * No duplicate json() calls found in source code
+   - **Build/Deployment Issue**:
+     * Frontend restarted multiple times
+     * Build cache cleared (rm -rf build node_modules/.cache)
+     * Webpack recompiled successfully
+     * BUT: bundle.js still contains old buggy code (same line numbers 40060, 40093)
+     * Running in development mode with craco/webpack-dev-server
+   - **Root Cause**: Source code has the fix, but the running application (bundle.js) does not reflect the changes
+   - **Impact**: Error messages not displayed to user, console shows TypeError
+   - **Status**: ❌ NOT WORKING - Build/deployment issue preventing fix from taking effect
+
 **Iteration 5 Testing** (March 29, 2026):
 - Tested: Creator Settings page with OAuth verification and bank account verification
 - **Results**: ✅ 6/8 PASSED, ❌ 2 CRITICAL BUGS FOUND

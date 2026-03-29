@@ -138,13 +138,15 @@ const CreatorSettings = () => {
         credentials: 'include',
       });
 
+      // Read the response body once
+      const data = await response.json();
+
       if (response.ok) {
-        const data = await response.json();
-        // Redirect to Instagram OAuth
+        // Success - redirect to Instagram OAuth
         window.location.href = data.auth_url;
       } else {
-        const error = await response.json();
-        alert(error.detail || 'Instagram verification not configured');
+        // Error - show message and reset button
+        alert(data.detail || 'Instagram verification not configured');
         setVerifying({ ...verifying, instagram: false });
       }
     } catch (error) {
@@ -162,13 +164,15 @@ const CreatorSettings = () => {
         credentials: 'include',
       });
 
+      // Read the response body once
+      const data = await response.json();
+
       if (response.ok) {
-        const data = await response.json();
-        // Redirect to YouTube OAuth
+        // Success - redirect to YouTube OAuth
         window.location.href = data.auth_url;
       } else {
-        const error = await response.json();
-        alert(error.detail || 'YouTube verification not configured');
+        // Error - show message and reset button
+        alert(data.detail || 'YouTube verification not configured');
         setVerifying({ ...verifying, youtube: false });
       }
     } catch (error) {
