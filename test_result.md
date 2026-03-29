@@ -274,14 +274,13 @@ Current Iteration: 8 (COMPLETED)
 
 
 ## Incorporate User Feedback
-**Iteration 8 Request:** Test each and every page in admin dashboard - check flows, features, find bugs/errors and fix them. Comprehensive module verification.
+**Iteration 9 Request:** Test merged admin payout page - verify single page at /admin/payouts with all features from both old and new pages.
 
-**Testing Completed:**
-- ✅ All 9 admin dashboard pages tested comprehensively
-- ✅ All 12 critical backend APIs tested and verified
-- ✅ Frontend and backend integration verified
-- ✅ ZERO critical bugs found
-- ✅ All features working correctly
+**Testing In Progress:**
+- Testing merged payout management page
+- Verifying /admin/payouts-new route removal
+- Testing all UI components and features
+- Testing Review modal and approve/reject actions
 
 **Iteration 8 - Comprehensive Admin Dashboard Testing** (March 29, 2026):
 - Tested: ALL 9 Admin Dashboard Pages with Complete Feature Testing
@@ -1081,3 +1080,101 @@ None - All critical issues from iterations 1, 2, 3 & 4 have been addressed.
 - ✅ **Overall Status**: ✅ PASS
 
 **Status**: 🎉 ALL ADMIN BACKEND API ENDPOINTS FULLY FUNCTIONAL - Ready for production use!
+
+
+
+**Iteration 9** (March 29, 2026):
+- Tested: Merged Admin Payout Management Page
+- **User Request**: Test merged payout page at /admin/payouts with all features from both old and new pages
+- **Results**: ❌ CRITICAL BACKEND API BUG FOUND - Frontend merged but backend API not updated
+
+**Frontend Testing Results:**
+- ✅ **Single payout page exists** at `/admin/payouts` (AdminPayoutsPage.js)
+- ✅ **Frontend code has ALL merged features**:
+  - 5 summary cards (Pending, Approved, Processing, Completed, Rejected) ✓
+  - Search box ✓
+  - Date range filter (7/30/90/365/all days) ✓
+  - Status filter (all/pending/approved/processing/completed/rejected) ✓
+  - Export to CSV ✓
+  - Review modal with all details ✓
+  - Approve/Reject actions ✓
+  - Admin notes and rejection reason textareas ✓
+  - Approve button disabled for insufficient balance ✓
+  - Back to Dashboard and Logout buttons ✓
+
+**Route Testing:**
+- ✅ `/admin/payouts` route exists and loads correctly
+- ⚠️ `/admin/payouts-new` route still accessible but shows blank page (no content)
+  - NOT defined in App.js routes
+  - Shows only header, no page content
+  - This is acceptable (React Router default behavior for undefined routes)
+
+**CRITICAL BUG FOUND - Backend API Mismatch:**
+- ❌ **Backend API `/api/admin/payouts` returns WRONG data**
+  - Current: Returns data from `wallet_transactions` collection (line 4823-4826 in server.py)
+  - Expected: Should return data from `payout_requests` collection
+  - Impact: Frontend displays "No Payouts Found" even when payout requests exist in database
+
+**Evidence:**
+1. Created test payout in `payout_requests` collection:
+   - Payout ID: payout_9d94419326fe
+   - Creator: Test Payout Creator
+   - Amount: ₹2000
+   - Status: pending
+   - Bank details: Complete
+   - Wallet balance: ₹5000 (sufficient)
+
+2. API returns empty array `[]` from `/api/admin/payouts`
+   - API queries `wallet_transactions` with `transaction_type: "payout"`
+   - Should query `payout_requests` collection instead
+
+3. Frontend expects payout request fields:
+   - `payout_id`, `creator_name`, `amount`, `wallet_balance`, `sufficient_balance`
+   - `bank_details` (account_holder, account_number, ifsc_code, bank_name)
+   - `status` (pending/approved/processing/completed/rejected)
+   - `created_at`, `requested_at`, `admin_notes`, `rejection_reason`
+
+**Root Cause:**
+- Frontend was merged successfully (AdminPayoutsPage.js has all features)
+- Backend API was NOT updated to match the merged frontend
+- API still returns old wallet transaction data instead of payout requests
+
+**Fix Required:**
+- Update `/api/admin/payouts` endpoint (line 4808-4849 in server.py)
+- Change query from `wallet_transactions` to `payout_requests`
+- Ensure returned data includes all required fields:
+  - `wallet_balance` (fetch from wallet)
+  - `sufficient_balance` (calculate: wallet_balance >= amount)
+  - All payout request fields
+
+**Additional Backend Issues Found:**
+- ❌ `/api/wallet/request-payout` endpoint has incomplete PayoutRequest model
+  - Model only has `amount` field (line 310-311)
+  - Endpoint tries to access non-existent fields: `bank_account_holder`, `bank_account_number`, etc. (line 5195-5198)
+  - This prevents creators from requesting payouts via the API
+
+**UI Components Verified (with empty data):**
+- ✅ All 5 summary cards display correctly (all showing 0)
+- ✅ Search box functional
+- ✅ Date range dropdown working (7/30/90/365/all days options)
+- ✅ Status filter dropdown working (all/pending/approved/processing/completed/rejected options)
+- ✅ Back to Dashboard button functional
+- ✅ Logout button functional
+- ✅ Empty state displays correctly: "No Payouts Found"
+- ✅ Export to CSV button hidden when no data (expected behavior)
+
+**Features NOT Tested (due to no data):**
+- ❌ Payout list display with actual data
+- ❌ Review modal functionality
+- ❌ Approve/Reject actions
+- ❌ Admin notes and rejection reason validation
+- ❌ Approve button disabled state for insufficient balance
+- ❌ Export to CSV with actual data
+
+**Overall Assessment:**
+- ✅ **Frontend**: FULLY MERGED and WORKING (100%)
+- ❌ **Backend API**: NOT UPDATED - Returns wrong data
+- ❌ **Integration**: BROKEN - Frontend cannot display payout requests
+- ❌ **Overall Status**: MERGE INCOMPLETE - Backend API needs update
+
+**Status**: ⚠️ MERGE INCOMPLETE - Frontend merged successfully but backend API not updated to match

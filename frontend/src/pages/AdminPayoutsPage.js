@@ -6,12 +6,12 @@ import {
   LogOut,
   CheckCircle,
   Clock,
+  XCircle,
   TrendingUp,
-  Users,
-  Calendar,
   Search,
   Download,
-  Shield
+  AlertCircle,
+  Eye
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -26,25 +26,34 @@ const AdminPayoutsPage = () => {
   const navigate = useNavigate();
   const [payouts, setPayouts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('all'); // all, pending, completed
+  const [filter, setFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [stats, setStats] = useState(null);
-  const [dateRange, setDateRange] = useState('30'); // days
+  const [dateRange, setDateRange] = useState('30');
+  const [selectedPayout, setSelectedPayout] = useState(null);
+  const [actionNotes, setActionNotes] = useState('');
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [processing, setProcessing] = useState(false);
 
   useEffect(() => {
     fetchPayouts();
     fetchStats();
-  }, [dateRange]);
+  }, [dateRange, filter]);
 
   const fetchPayouts = async () => {
+    setLoading(true);
     try {
-      const response = await axios.get(`${BACKEND_URL}/api/admin/payouts?days=${dateRange}`, {
+      const params = new URLSearchParams();
+      if (dateRange !== 'all') params.append('days', dateRange);
+      if (filter !== 'all') params.append('status', filter);
+      
+      const response = await axios.get(`${BACKEND_URL}/api/admin/payouts?${params}`, {
         withCredentials: true
       });
       setPayouts(response.data);
-      setLoading(false);
     } catch (error) {
       console.error('Failed to fetch payouts:', error);
+    } finally {
       setLoading(false);
     }
   };
@@ -57,6 +66,42 @@ const AdminPayoutsPage = () => {
       setStats(response.data);
     } catch (error) {
       console.error('Failed to fetch stats:', error);
+    }
+  };
+
+  const handleAction = async (payoutId, action) => {
+    if (action === 'reject' && !rejectionReason.trim()) {
+      alert('Please provide a rejection reason');
+      return;
+    }
+
+    setProcessing(true);
+    try {
+      const payload = {
+        action,
+        admin_notes: actionNotes
+      };
+      
+      if (action === 'reject') {
+        payload.rejection_reason = rejectionReason;
+      }
+
+      await axios.post(
+        `${BACKEND_URL}/api/admin/payouts/${payoutId}/action`,
+        payload,
+        { withCredentials: true }
+      );
+
+      alert(`Payout ${action}ed successfully`);
+      setSelectedPayout(null);
+      setActionNotes('');
+      setRejectionReason('');
+      fetchPayouts();
+      fetchStats();
+    } catch (error) {
+      alert(error.response?.data?.detail || `Failed to ${action} payout`);
+    } finally {
+      setProcessing(false);
     }
   };
 
@@ -74,7 +119,7 @@ const AdminPayoutsPage = () => {
       style: 'currency',
       currency: 'INR',
       minimumFractionDigits: 2
-    }).format(amount);
+    }).format(amount || 0);
   };
 
   const formatDate = (dateString) => {
@@ -88,111 +133,126 @@ const AdminPayoutsPage = () => {
     });
   };
 
+  const getStatusColor = (status) => {
+    const colors = {
+      pending: 'bg-[#FFE57F]',
+      approved: 'bg-[#A0E7E5]',
+      processing: 'bg-[#C6A2FF]',
+      completed: 'bg-[#B4F8C8]',
+      rejected: 'bg-[#FFB6B9]'
+    };
+    return colors[status] || 'bg-gray-200';
+  };
+
   const filteredPayouts = payouts.filter(payout => {
-    // Filter by status
-    if (filter === 'pending' && payout.status !== 'pending') return false;
-    if (filter === 'completed' && payout.status !== 'completed') return false;
-    
-    // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       return (
         payout.creator_name?.toLowerCase().includes(query) ||
-        payout.project_title?.toLowerCase().includes(query) ||
-        payout.transaction_id?.toLowerCase().includes(query)
+        payout.payout_id?.toLowerCase().includes(query)
       );
     }
-    
     return true;
   });
 
-  const getStatusColor = (status) => {
-    const colors = {
-      pending: 'bg-[#FFE57F]',
-      completed: 'bg-[#B4F8C8]',
-      failed: 'bg-[#FF6B6B]'
-    };
-    return colors[status] || 'bg-white';
+  // Calculate summary stats
+  const summaryStats = {
+    pending: payouts.filter(p => p.status === 'pending').length,
+    approved: payouts.filter(p => p.status === 'approved').length,
+    processing: payouts.filter(p => p.status === 'processing').length,
+    completed: payouts.filter(p => p.status === 'completed').length,
+    rejected: payouts.filter(p => p.status === 'rejected').length,
   };
 
   return (
     <div className="min-h-screen bg-[#FAFAFA]">
-      <nav className="sticky top-0 z-50 bg-[#FAFAFA] border-b-2 border-[#0A0A0A] px-6 py-4">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <div className="flex items-center gap-3">
+      {/* Header */}
+      <div className="bg-white border-b-4 border-[#0A0A0A] mb-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button
+                onClick={() => navigate('/admin')}
+                variant="outline"
+                className="border-2 border-[#0A0A0A] shadow-[4px_4px_0px_0px_rgba(10,10,10,1)] font-bold"
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" strokeWidth={3} />
+                Back
+              </Button>
+              <div>
+                <h1 className="text-3xl sm:text-4xl font-black">Payout Management</h1>
+                <p className="text-[#4A4A4A] font-medium">Review and manage creator payout requests</p>
+              </div>
+            </div>
             <Button
-              onClick={() => navigate('/admin')}
-              className="bg-white border-2 border-[#0A0A0A] shadow-[4px_4px_0px_0px_rgba(10,10,10,1)] font-bold"
+              onClick={handleLogout}
+              variant="outline"
+              className="border-2 border-[#0A0A0A] shadow-[4px_4px_0px_0px_rgba(10,10,10,1)] font-bold hover:bg-red-100"
             >
-              <ArrowLeft className="w-4 h-4" strokeWidth={3} />
+              <LogOut className="w-4 h-4 mr-2" strokeWidth={3} />
+              Logout
             </Button>
-            <div className="flex items-center gap-3">
-              <Shield className="w-8 h-8" strokeWidth={3} />
-              <h1 className="text-3xl font-black tracking-tight">Payout Management</h1>
-            </div>
           </div>
-          <Button onClick={handleLogout} className="bg-white border-2 border-[#0A0A0A] shadow-[4px_4px_0px_0px_rgba(10,10,10,1)] font-bold">
-            <LogOut className="w-4 h-4" strokeWidth={3} />
-          </Button>
         </div>
-      </nav>
+      </div>
 
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        {/* Stats Cards */}
-        {stats && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div className="bg-white border-2 border-[#0A0A0A] shadow-[4px_4px_0px_0px_rgba(10,10,10,1)] rounded-xl p-6">
-              <div className="flex items-center gap-3 mb-2">
-                <DollarSign className="w-6 h-6 text-[#4A4A4A]" strokeWidth={3} />
-                <p className="text-xs font-bold uppercase text-[#4A4A4A]">Total Payouts</p>
-              </div>
-              <p className="text-3xl font-black">{formatCurrency(stats.total_amount)}</p>
-              <p className="text-sm text-[#4A4A4A] font-medium mt-1">{stats.total_count} transactions</p>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-12">
+        {/* Summary Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+          <div className={`${getStatusColor('pending')} border-2 border-[#0A0A0A] shadow-[4px_4px_0px_0px_rgba(10,10,10,1)] rounded-xl p-4`}>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-black text-sm">Pending</h3>
+              <Clock className="w-5 h-5" strokeWidth={3} />
             </div>
-
-            <div className="bg-[#B4F8C8] border-2 border-[#0A0A0A] shadow-[4px_4px_0px_0px_rgba(10,10,10,1)] rounded-xl p-6">
-              <div className="flex items-center gap-3 mb-2">
-                <CheckCircle className="w-6 h-6 text-[#4A4A4A]" strokeWidth={3} />
-                <p className="text-xs font-bold uppercase text-[#4A4A4A]">Completed</p>
-              </div>
-              <p className="text-3xl font-black">{formatCurrency(stats.completed_amount)}</p>
-              <p className="text-sm text-[#4A4A4A] font-medium mt-1">{stats.completed_count} payouts</p>
-            </div>
-
-            <div className="bg-[#FFE57F] border-2 border-[#0A0A0A] shadow-[4px_4px_0px_0px_rgba(10,10,10,1)] rounded-xl p-6">
-              <div className="flex items-center gap-3 mb-2">
-                <Clock className="w-6 h-6 text-[#4A4A4A]" strokeWidth={3} />
-                <p className="text-xs font-bold uppercase text-[#4A4A4A]">Pending</p>
-              </div>
-              <p className="text-3xl font-black">{formatCurrency(stats.pending_amount)}</p>
-              <p className="text-sm text-[#4A4A4A] font-medium mt-1">{stats.pending_count} payouts</p>
-            </div>
-
-            <div className="bg-[#C6A2FF] border-2 border-[#0A0A0A] shadow-[4px_4px_0px_0px_rgba(10,10,10,1)] rounded-xl p-6">
-              <div className="flex items-center gap-3 mb-2">
-                <TrendingUp className="w-6 h-6 text-[#4A4A4A]" strokeWidth={3} />
-                <p className="text-xs font-bold uppercase text-[#4A4A4A]">Avg Payout</p>
-              </div>
-              <p className="text-3xl font-black">{formatCurrency(stats.average_payout)}</p>
-              <p className="text-sm text-[#4A4A4A] font-medium mt-1">per transaction</p>
-            </div>
+            <p className="text-3xl font-black">{summaryStats.pending}</p>
           </div>
-        )}
+          
+          <div className={`${getStatusColor('approved')} border-2 border-[#0A0A0A] shadow-[4px_4px_0px_0px_rgba(10,10,10,1)] rounded-xl p-4`}>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-black text-sm">Approved</h3>
+              <CheckCircle className="w-5 h-5" strokeWidth={3} />
+            </div>
+            <p className="text-3xl font-black">{summaryStats.approved}</p>
+          </div>
+          
+          <div className={`${getStatusColor('processing')} border-2 border-[#0A0A0A] shadow-[4px_4px_0px_0px_rgba(10,10,10,1)] rounded-xl p-4`}>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-black text-sm">Processing</h3>
+              <TrendingUp className="w-5 h-5" strokeWidth={3} />
+            </div>
+            <p className="text-3xl font-black">{summaryStats.processing}</p>
+          </div>
+          
+          <div className={`${getStatusColor('completed')} border-2 border-[#0A0A0A] shadow-[4px_4px_0px_0px_rgba(10,10,10,1)] rounded-xl p-4`}>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-black text-sm">Completed</h3>
+              <CheckCircle className="w-5 h-5" strokeWidth={3} />
+            </div>
+            <p className="text-3xl font-black">{summaryStats.completed}</p>
+          </div>
+          
+          <div className={`${getStatusColor('rejected')} border-2 border-[#0A0A0A] shadow-[4px_4px_0px_0px_rgba(10,10,10,1)] rounded-xl p-4`}>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-black text-sm">Rejected</h3>
+              <XCircle className="w-5 h-5" strokeWidth={3} />
+            </div>
+            <p className="text-3xl font-black">{summaryStats.rejected}</p>
+          </div>
+        </div>
 
         {/* Filters and Search */}
-        <div className="bg-white border-2 border-[#0A0A0A] shadow-[4px_4px_0px_0px_rgba(10,10,10,1)] rounded-xl p-6 mb-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-white border-2 border-[#0A0A0A] shadow-[4px_4px_0px_0px_rgba(10,10,10,1)] rounded-xl p-6 mb-6">
+          <div className="grid md:grid-cols-3 gap-4">
             {/* Search */}
-            <div className="md:col-span-2">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#4A4A4A]" strokeWidth={3} />
-                <Input
-                  placeholder="Search by creator, project, or transaction ID..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="border-2 border-[#0A0A0A] h-12 pl-10 font-bold"
-                />
-              </div>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#4A4A4A]" strokeWidth={2} />
+              <Input
+                type="text"
+                placeholder="Search by creator or payout ID..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full h-12 border-2 border-[#0A0A0A] rounded-md pl-11 font-bold"
+              />
             </div>
 
             {/* Date Range */}
@@ -211,25 +271,19 @@ const AdminPayoutsPage = () => {
             </div>
 
             {/* Status Filter */}
-            <div className="flex gap-2">
-              <Button
-                onClick={() => setFilter('all')}
-                className={`flex-1 ${filter === 'all' ? 'bg-[#0A0A0A] text-white' : 'bg-white'} border-2 border-[#0A0A0A] font-bold`}
+            <div>
+              <select
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                className="w-full h-12 border-2 border-[#0A0A0A] rounded-md px-3 font-bold bg-white"
               >
-                All
-              </Button>
-              <Button
-                onClick={() => setFilter('completed')}
-                className={`flex-1 ${filter === 'completed' ? 'bg-[#B4F8C8]' : 'bg-white'} border-2 border-[#0A0A0A] font-bold`}
-              >
-                Paid
-              </Button>
-              <Button
-                onClick={() => setFilter('pending')}
-                className={`flex-1 ${filter === 'pending' ? 'bg-[#FFE57F]' : 'bg-white'} border-2 border-[#0A0A0A] font-bold`}
-              >
-                Pending
-              </Button>
+                <option value="all">All Status</option>
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+                <option value="processing">Processing</option>
+                <option value="completed">Completed</option>
+                <option value="rejected">Rejected</option>
+              </select>
             </div>
           </div>
         </div>
@@ -241,72 +295,69 @@ const AdminPayoutsPage = () => {
           <EmptyState
             icon={DollarSign}
             title="No Payouts Found"
-            description={searchQuery ? "No payouts match your search" : `No ${filter} payouts in the selected time period`}
+            description={searchQuery ? "No payouts match your search" : "No payout requests in the selected period"}
           />
         ) : (
           <div className="space-y-4">
-            {filteredPayouts.map((payout) => {
-              const statusColor = getStatusColor(payout.status || 'completed');
-              
-              return (
-                <div
-                  key={payout.transaction_id}
-                  className="bg-white border-2 border-[#0A0A0A] shadow-[4px_4px_0px_0px_rgba(10,10,10,1)] rounded-xl p-6"
-                >
-                  <div className="flex flex-col md:flex-row justify-between gap-4">
-                    {/* Left Section - Details */}
-                    <div className="flex-1">
-                      <div className="flex items-start justify-between mb-3">
-                        <div>
-                          <h3 className="text-xl font-black mb-1">
-                            {payout.creator_name || 'Unknown Creator'}
-                          </h3>
-                          <p className="text-sm text-[#4A4A4A] font-medium">
-                            Project: <span className="font-bold">{payout.project_title || payout.description}</span>
-                          </p>
-                        </div>
-                        <Badge className={`${statusColor} border-2 border-[#0A0A0A] px-3 py-1 font-black text-xs uppercase`}>
-                          {payout.status || 'Completed'}
-                        </Badge>
-                      </div>
-
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        <div>
-                          <p className="text-xs font-bold uppercase text-[#4A4A4A] mb-1">Amount</p>
-                          <p className="text-lg font-black">{formatCurrency(payout.amount)}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs font-bold uppercase text-[#4A4A4A] mb-1">Transaction ID</p>
-                          <p className="text-sm font-bold font-mono">{payout.transaction_id.slice(-12)}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs font-bold uppercase text-[#4A4A4A] mb-1">Type</p>
-                          <p className="text-sm font-bold capitalize">{payout.transaction_type}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs font-bold uppercase text-[#4A4A4A] mb-1">Date</p>
-                          <p className="text-sm font-bold">{formatDate(payout.created_at)}</p>
-                        </div>
-                      </div>
-
-                      {payout.description && (
-                        <p className="text-sm text-[#4A4A4A] font-medium mt-3">
-                          {payout.description}
+            {filteredPayouts.map((payout) => (
+              <div
+                key={payout.payout_id}
+                className="bg-white border-2 border-[#0A0A0A] shadow-[4px_4px_0px_0px_rgba(10,10,10,1)] rounded-xl p-6"
+              >
+                <div className="flex flex-col md:flex-row justify-between gap-4">
+                  {/* Left Section - Details */}
+                  <div className="flex-1">
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <h3 className="text-xl font-black mb-1">
+                          {payout.creator_name || 'Unknown Creator'}
+                        </h3>
+                        <p className="text-sm text-[#4A4A4A] font-medium">
+                          Payout ID: <span className="font-bold font-mono">{payout.payout_id?.slice(-12)}</span>
                         </p>
-                      )}
+                      </div>
+                      <Badge className={`${getStatusColor(payout.status)} border-2 border-[#0A0A0A] px-3 py-1 font-black text-xs uppercase`}>
+                        {payout.status}
+                      </Badge>
                     </div>
 
-                    {/* Right Section - Balance After */}
-                    {payout.balance_after !== undefined && (
-                      <div className="bg-[#FAFAFA] border-2 border-[#0A0A0A] rounded-lg p-4 text-center min-w-[140px]">
-                        <p className="text-xs font-bold uppercase text-[#4A4A4A] mb-1">Balance After</p>
-                        <p className="text-2xl font-black">{formatCurrency(payout.balance_after)}</p>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                      <div>
+                        <p className="text-xs font-bold uppercase text-[#4A4A4A] mb-1">Amount</p>
+                        <p className="text-lg font-black">{formatCurrency(payout.amount)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold uppercase text-[#4A4A4A] mb-1">Wallet Balance</p>
+                        <p className={`text-lg font-black ${payout.sufficient_balance ? 'text-green-600' : 'text-red-600'}`}>
+                          {formatCurrency(payout.wallet_balance)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold uppercase text-[#4A4A4A] mb-1">Bank</p>
+                        <p className="text-sm font-bold">{payout.bank_details?.bank_name || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold uppercase text-[#4A4A4A] mb-1">Requested</p>
+                        <p className="text-sm font-bold">{formatDate(payout.created_at)}</p>
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    {payout.status === 'pending' && (
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => setSelectedPayout(payout)}
+                          className="bg-[#A0E7E5] hover:bg-[#90D7D5] border-2 border-[#0A0A0A] shadow-[4px_4px_0px_0px_rgba(10,10,10,1)] font-bold"
+                        >
+                          <Eye className="w-4 h-4 mr-2" strokeWidth={3} />
+                          Review
+                        </Button>
                       </div>
                     )}
                   </div>
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         )}
 
@@ -315,16 +366,14 @@ const AdminPayoutsPage = () => {
           <div className="mt-8 text-center">
             <Button
               onClick={() => {
-                // Convert to CSV
                 const csv = [
-                  ['Transaction ID', 'Creator', 'Project', 'Amount', 'Date', 'Status'].join(','),
+                  ['Payout ID', 'Creator', 'Amount', 'Status', 'Date'].join(','),
                   ...filteredPayouts.map(p => [
-                    p.transaction_id,
+                    p.payout_id,
                     p.creator_name || 'N/A',
-                    p.project_title || p.description,
                     p.amount,
-                    formatDate(p.created_at),
-                    p.status || 'completed'
+                    p.status,
+                    formatDate(p.created_at)
                   ].join(','))
                 ].join('\n');
                 
@@ -343,6 +392,130 @@ const AdminPayoutsPage = () => {
           </div>
         )}
       </div>
+
+      {/* Review Modal */}
+      {selectedPayout && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white border-4 border-[#0A0A0A] shadow-[8px_8px_0px_0px_rgba(10,10,10,1)] rounded-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <h2 className="text-2xl font-black mb-6">Review Payout Request</h2>
+            
+            <div className="space-y-4 mb-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-bold text-gray-600 mb-1">Creator</label>
+                  <p className="font-bold">{selectedPayout.creator_name}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-600 mb-1">Amount</label>
+                  <p className="font-black text-xl">{formatCurrency(selectedPayout.amount)}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-600 mb-1">Wallet Balance</label>
+                  <p className={`font-bold ${selectedPayout.sufficient_balance ? 'text-green-600' : 'text-red-600'}`}>
+                    {formatCurrency(selectedPayout.wallet_balance)}
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-600 mb-1">Sufficient Balance?</label>
+                  <p className={`font-bold ${selectedPayout.sufficient_balance ? 'text-green-600' : 'text-red-600'}`}>
+                    {selectedPayout.sufficient_balance ? '✅ Yes' : '❌ No'}
+                  </p>
+                </div>
+              </div>
+
+              {selectedPayout.bank_details && (
+                <div className="border-2 border-[#0A0A0A] rounded-lg p-4 bg-[#FAFAFA]">
+                  <h3 className="font-bold mb-2 flex items-center gap-2">
+                    <DollarSign className="w-4 h-4" />
+                    Bank Details
+                  </h3>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <span className="text-gray-600">Account Holder:</span>
+                      <p className="font-bold">{selectedPayout.bank_details.account_holder}</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-600">Bank Name:</span>
+                      <p className="font-bold">{selectedPayout.bank_details.bank_name}</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-600">Account Number:</span>
+                      <p className="font-mono font-bold">{selectedPayout.bank_details.account_number}</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-600">IFSC Code:</span>
+                      <p className="font-mono font-bold">{selectedPayout.bank_details.ifsc_code}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {!selectedPayout.sufficient_balance && (
+                <div className="bg-red-50 border-2 border-red-500 rounded-lg p-4 flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-bold text-red-900">Insufficient Balance</p>
+                    <p className="text-sm text-red-700">The creator does not have sufficient balance for this payout.</p>
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="block font-bold mb-2">Admin Notes (Optional)</label>
+                <textarea
+                  value={actionNotes}
+                  onChange={(e) => setActionNotes(e.target.value)}
+                  className="w-full border-2 border-[#0A0A0A] rounded-lg px-4 py-2 font-medium"
+                  rows="3"
+                  placeholder="Add notes about this payout..."
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold mb-2">Rejection Reason (Required if rejecting)</label>
+                <textarea
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  className="w-full border-2 border-[#0A0A0A] rounded-lg px-4 py-2 font-medium"
+                  rows="2"
+                  placeholder="Explain why this payout is being rejected..."
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <Button
+                onClick={() => {
+                  setSelectedPayout(null);
+                  setActionNotes('');
+                  setRejectionReason('');
+                }}
+                disabled={processing}
+                variant="outline"
+                className="flex-1 border-2 border-[#0A0A0A] shadow-[4px_4px_0px_0px_rgba(10,10,10,1)] font-bold"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => handleAction(selectedPayout.payout_id, 'reject')}
+                disabled={processing}
+                className="flex-1 bg-red-400 hover:bg-red-500 border-2 border-[#0A0A0A] shadow-[4px_4px_0px_0px_rgba(10,10,10,1)] font-bold"
+              >
+                <XCircle className="w-4 h-4 mr-2" strokeWidth={3} />
+                {processing ? 'Processing...' : 'Reject'}
+              </Button>
+              <Button
+                onClick={() => handleAction(selectedPayout.payout_id, 'approve')}
+                disabled={processing || !selectedPayout.sufficient_balance}
+                className="flex-1 bg-green-400 hover:bg-green-500 border-2 border-[#0A0A0A] shadow-[4px_4px_0px_0px_rgba(10,10,10,1)] font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <CheckCircle className="w-4 h-4 mr-2" strokeWidth={3} />
+                {processing ? 'Processing...' : 'Approve'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

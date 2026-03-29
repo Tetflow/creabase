@@ -19,7 +19,6 @@ import AdminFeeConfiguration from './pages/AdminFeeConfiguration';
 import AdminAnalytics from './pages/AdminAnalytics';
 import AdminDisputesPage from './pages/AdminDisputesPage';
 import AdminPayoutsPage from './pages/AdminPayoutsPage';
-import AdminPayouts from './pages/AdminPayouts';
 import CreatorDashboard from './pages/CreatorDashboard';
 import CreatorPortfolioPage from './pages/CreatorPortfolioPage';
 import CreatorAnalyticsPage from './pages/CreatorAnalyticsPage';
@@ -184,16 +183,8 @@ function AppRouter() {
       <Route
         path="/admin/payouts"
         element={
-          <ProtectedRoute>
-            <AdminPayoutsPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/admin/payouts-new"
-        element={
           <ProtectedRoute requiredRole="admin">
-            <AdminPayouts />
+            <AdminPayoutsPage />
           </ProtectedRoute>
         }
       />
