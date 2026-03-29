@@ -2113,17 +2113,34 @@ async def update_wallet_balance(user_id: str, amount: float, operation: str = "c
 # Wallet Endpoints
 @api_router.get("/wallet/balance")
 async def get_wallet_balance(current_user: User = Depends(get_current_user)):
-    """Get current wallet balance"""
-    wallet = await get_or_create_wallet(current_user.user_id)
-    return {
-        "wallet_id": wallet["wallet_id"],
-        "balance": wallet["balance"],
-        "currency": wallet["currency"]
-    }
-
+    """Get current wallet balance with recent transactions"""
     wallet = await get_or_create_wallet(current_user.user_id)
     
-    query = {"wallet_id": wallet["wallet_id"]}
+    # Get recent transactions (last 10)
+    transactions = await db.wallet_transactions.find(
+        {"user_id": current_user.user_id},
+        {"_id": 0}
+    ).sort("created_at", -1).limit(10).to_list(10)
+    
+    return {
+        "wallet_id": wallet["wallet_id"],
+        "balance": wallet.get("balance", 0.0),
+        "currency": wallet.get("currency", "INR"),
+        "can_topup": current_user.role == "business",
+        "can_withdraw": current_user.role == "creator",
+        "recent_transactions": transactions
+    }
+
+@api_router.get("/wallet/transactions")
+async def get_wallet_transactions(
+    current_user: User = Depends(get_current_user),
+    limit: int = 50,
+    transaction_type: str = None
+):
+    """Get wallet transaction history"""
+    wallet = await get_or_create_wallet(current_user.user_id)
+    
+    query = {"user_id": current_user.user_id}
     if transaction_type:
         query["transaction_type"] = transaction_type
     
@@ -2133,10 +2150,8 @@ async def get_wallet_balance(current_user: User = Depends(get_current_user)):
     ).sort("created_at", -1).limit(limit).to_list(limit)
     
     return {
-        "wallet_id": wallet["wallet_id"],
-        "current_balance": wallet["balance"],
         "transactions": transactions,
-        "total_count": len(transactions)
+        "count": len(transactions)
     }
 
 @api_router.get("/wallet/withdrawals")
