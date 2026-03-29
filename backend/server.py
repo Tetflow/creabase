@@ -40,6 +40,17 @@ client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
 app = FastAPI()
+
+# CORS Configuration - CRITICAL for frontend-backend communication
+cors_origins = os.environ.get('CORS_ORIGINS', '*').split(',')
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=cors_origins if cors_origins != ['*'] else ["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 api_router = APIRouter(prefix="/api")
 
 logging.basicConfig(level=logging.INFO)
@@ -1196,7 +1207,25 @@ async def get_projects(current_user: User = Depends(get_current_user)):
 
 @api_router.post("/projects/{project_id}/pay")
 async def pay_project(project_id: str, current_user: User = Depends(get_current_user)):
-    # Mock payment - in production, integrate with Cashfree
+    """Business pays for project - requires business role and project ownership"""
+    # CRITICAL: Verify user is business and owns the project
+    if current_user.role != "business":
+        raise HTTPException(status_code=403, detail="Only businesses can pay for projects")
+    
+    # Get project
+    project = await db.projects.find_one({"project_id": project_id}, {"_id": 0})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Verify business owns this project
+    if project["business_id"] != current_user.user_id:
+        raise HTTPException(status_code=403, detail="Not authorized - you don't own this project")
+    
+    # Verify project status
+    if project["status"] != "pending":
+        raise HTTPException(status_code=400, detail=f"Cannot pay for project with status: {project['status']}")
+    
+    # Mock payment - in production, integrate with Cashfree/Razorpay
     await db.escrow_transactions.update_one(
         {"project_id": project_id},
         {"$set": {"status": "held_in_escrow", "paid_at": datetime.now(timezone.utc)}}
