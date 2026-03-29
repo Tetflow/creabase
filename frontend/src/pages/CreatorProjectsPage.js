@@ -24,6 +24,7 @@ import EmptyState from '../components/EmptyState';
 import { ListSkeleton } from '../components/Skeletons';
 import BottomNav from '../components/BottomNav';
 import DisputeFormModal from '../components/DisputeFormModal';
+import FileUpload from '../components/FileUpload';
 import axios from 'axios';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -40,6 +41,7 @@ const CreatorProjectsPage = () => {
   const [declineReason, setDeclineReason] = useState('');
   const [deliverableUrl, setDeliverableUrl] = useState('');
   const [deliveryNotes, setDeliveryNotes] = useState('');
+  const [deliverableFiles, setDeliverableFiles] = useState([]);
   const [processing, setProcessing] = useState(false);
 
   useEffect(() => {
@@ -100,19 +102,25 @@ const CreatorProjectsPage = () => {
   };
 
   const handleSubmitDeliverable = async (projectId) => {
-    if (!deliverableUrl.trim()) {
-      alert('Please provide a deliverable URL');
+    if (!deliverableUrl.trim() && deliverableFiles.length === 0) {
+      alert('Please provide a deliverable URL or upload files');
       return;
     }
 
     setProcessing(true);
     try {
+      // Prepare deliverable data with files
+      const fileUrls = deliverableFiles.map(f => f.url).join(', ');
+      const combinedUrl = deliverableUrl.trim() 
+        ? `${deliverableUrl}\n\nAttached Files: ${fileUrls}`
+        : fileUrls;
+
       await axios.post(
         `${BACKEND_URL}/api/projects/${projectId}/deliverables`,
         null,
         {
           params: {
-            deliverable_url: deliverableUrl,
+            deliverable_url: combinedUrl,
             notes: deliveryNotes
           },
           withCredentials: true
@@ -122,6 +130,7 @@ const CreatorProjectsPage = () => {
       setShowDeliverModal(false);
       setDeliverableUrl('');
       setDeliveryNotes('');
+      setDeliverableFiles([]);
       fetchProjects();
     } catch (error) {
       alert(error.response?.data?.detail || 'Failed to submit deliverables');
@@ -410,7 +419,26 @@ const CreatorProjectsPage = () => {
                             </DialogHeader>
                             <div className="space-y-4">
                               <div>
-                                <label className="block font-bold mb-2">Deliverable URL *</label>
+                                <label className="block font-bold mb-2">Upload Files</label>
+                                <FileUpload
+                                  onFilesSelected={setDeliverableFiles}
+                                  maxFiles={5}
+                                  maxSizeMB={10}
+                                  existingFiles={deliverableFiles}
+                                />
+                              </div>
+                              
+                              <div className="relative">
+                                <div className="absolute inset-0 flex items-center">
+                                  <div className="w-full border-t border-gray-300"></div>
+                                </div>
+                                <div className="relative flex justify-center text-sm">
+                                  <span className="px-2 bg-white text-gray-500 font-bold">OR</span>
+                                </div>
+                              </div>
+
+                              <div>
+                                <label className="block font-bold mb-2">Deliverable URL</label>
                                 <Input
                                   value={deliverableUrl}
                                   onChange={(e) => setDeliverableUrl(e.target.value)}
@@ -418,7 +446,7 @@ const CreatorProjectsPage = () => {
                                   className="border-2 border-[#0A0A0A]"
                                 />
                                 <p className="text-xs text-[#4A4A4A] mt-1">
-                                  Upload your work to Google Drive, Dropbox, or any cloud storage and paste the link here
+                                  Or paste a link to Google Drive, Dropbox, etc.
                                 </p>
                               </div>
                               <div>
@@ -433,8 +461,8 @@ const CreatorProjectsPage = () => {
                               <div className="flex gap-3">
                                 <Button
                                   onClick={() => handleSubmitDeliverable(project.project_id)}
-                                  disabled={processing || !deliverableUrl.trim()}
-                                  className="flex-1 bg-[#B4F8C8] border-2 border-[#0A0A0A] shadow-[4px_4px_0px_0px_rgba(10,10,10,1)] hover:shadow-[6px_6px_0px_0px_rgba(10,10,10,1)] hover:-translate-y-1 font-bold transition-all"
+                                  disabled={processing || (!deliverableUrl.trim() && deliverableFiles.length === 0)}
+                                  className="flex-1 bg-[#B4F8C8] border-2 border-[#0A0A0A] shadow-[4px_4px_0px_0px_rgba(10,10,10,1)] hover:shadow-[6px_6px_0px_0px_rgba(10,10,10,1)] hover:-translate-y-1 font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                   {processing ? 'Submitting...' : 'Submit Deliverable'}
                                 </Button>

@@ -2110,6 +2110,125 @@ async def update_wallet_balance(user_id: str, amount: float, operation: str = "c
     
     return new_balance
 
+
+# Analytics Helper Functions
+async def calculate_avg_response_time(user_id: str) -> float:
+    """Calculate average time to first response in hours"""
+    try:
+        # Get all messages where user is the receiver (first message from sender)
+        # and track when they responded
+        pipeline = [
+            {
+                "$match": {
+                    "$or": [
+                        {"sender_id": user_id},
+                        {"receiver_id": user_id}
+                    ]
+                }
+            },
+            {"$sort": {"created_at": 1}},
+            {
+                "$group": {
+                    "_id": {
+                        "$cond": [
+                            {"$eq": ["$sender_id", user_id]},
+                            "$receiver_id",
+                            "$sender_id"
+                        ]
+                    },
+                    "messages": {"$push": "$$ROOT"}
+                }
+            }
+        ]
+        
+        conversations = await db.messages.aggregate(pipeline).to_list(None)
+        response_times = []
+        
+        for conv in conversations:
+            messages = conv.get("messages", [])
+            if len(messages) < 2:
+                continue
+                
+            # Find first message TO the user and their first response
+            first_incoming = None
+            first_response = None
+            
+            for msg in messages:
+                if msg["receiver_id"] == user_id and not first_incoming:
+                    first_incoming = msg
+                elif msg["sender_id"] == user_id and first_incoming and not first_response:
+                    first_response = msg
+                    break
+            
+            if first_incoming and first_response:
+                time_diff = (first_response["created_at"] - first_incoming["created_at"]).total_seconds() / 3600
+                response_times.append(time_diff)
+        
+        if not response_times:
+            return 24.0  # Default 24 hours if no data
+        
+        avg_time = sum(response_times) / len(response_times)
+        return round(avg_time, 1)
+    except Exception as e:
+        print(f"Error calculating response time: {e}")
+        return 24.0
+
+async def calculate_on_time_delivery(creator_id: str) -> float:
+    """Calculate percentage of projects delivered on time"""
+    try:
+        completed_projects = await db.projects.find({
+            "creator_id": creator_id,
+            "status": "completed"
+        }).to_list(None)
+        
+        if not completed_projects:
+            return 100.0  # Perfect score if no projects yet
+        
+        on_time_count = 0
+        for project in completed_projects:
+            deadline = project.get("deadline")
+            completed_at = project.get("completed_at")
+            
+            if deadline and completed_at:
+                # Convert strings to datetime if needed
+                if isinstance(deadline, str):
+                    deadline = datetime.fromisoformat(deadline.replace('Z', '+00:00'))
+                if isinstance(completed_at, str):
+                    completed_at = datetime.fromisoformat(completed_at.replace('Z', '+00:00'))
+                
+                if completed_at <= deadline:
+                    on_time_count += 1
+        
+        percentage = (on_time_count / len(completed_projects)) * 100
+        return round(percentage, 1)
+    except Exception as e:
+        print(f"Error calculating on-time delivery: {e}")
+        return 95.0
+
+async def calculate_monthly_earnings(user_id: str) -> float:
+    """Calculate current month earnings from wallet transactions"""
+    try:
+        from datetime import datetime, timezone
+        
+        # Get first day of current month
+        now = datetime.now(timezone.utc)
+        first_day = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        
+        # Get all credit transactions this month
+        transactions = await db.wallet_transactions.find({
+            "user_id": user_id,
+            "transaction_type": {"$in": ["payout", "credit", "topup"]},
+            "created_at": {"$gte": first_day},
+            "status": "completed"
+        }).to_list(None)
+        
+        total = sum(txn.get("amount", 0) for txn in transactions)
+        return round(total, 2)
+    except Exception as e:
+        print(f"Error calculating monthly earnings: {e}")
+        return 0.0
+
+
 # Wallet Endpoints
 @api_router.get("/wallet/balance")
 async def get_wallet_balance(current_user: User = Depends(get_current_user)):
@@ -2548,8 +2667,8 @@ async def get_creator_analytics(creator_id: str, current_user: User = Depends(ge
     # Profile views (estimate based on creator_views)
     profile_views = await db.creator_views.count_documents({"creator_id": creator_id})
     
-    # Response time (calculate from messages if available, otherwise default)
-    avg_response_time_hours = 4  # Mock for now - in production calculate from message response times
+    # Response time (calculate from real message data)
+    avg_response_time_hours = await calculate_avg_response_time(creator_id)
     
     # Calculate badge
     creator_stats = {
@@ -2584,7 +2703,7 @@ async def get_creator_analytics(creator_id: str, current_user: User = Depends(ge
         "earnings": {
             "total": round(total_earnings, 2),
             "avg_per_project": round(avg_project_value, 2),
-            "this_month": 0  # TODO: Calculate monthly earnings
+            "this_month": await calculate_monthly_earnings(creator_id)
         },
         "reputation": {
             "average_rating": round(avg_rating, 2),
@@ -2715,8 +2834,8 @@ async def get_my_creator_analytics(current_user: User = Depends(get_current_user
         },
         "recent_projects": recent_projects,
         "performance": {
-            "response_time_hours": 4,  # Mock - calculate from messages in production
-            "on_time_delivery": 95  # Mock - calculate from deadlines in production
+            "response_time_hours": await calculate_avg_response_time(creator_id),
+            "on_time_delivery": await calculate_on_time_delivery(creator_id)
         }
     }
 
@@ -3007,7 +3126,7 @@ async def get_creator_badge(creator_id: str):
     creator_stats = {
         "completed_projects": completed_projects,
         "average_rating": avg_rating,
-        "avg_response_time_hours": 4,  # Mock for now
+        "avg_response_time_hours": await calculate_avg_response_time(creator_id),
         "verification_status": creator.get("verification_status", "unverified"),
         "is_premium": is_premium
     }
