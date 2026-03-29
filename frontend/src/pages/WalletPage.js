@@ -94,6 +94,24 @@ export default function WalletPage() {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
 
+  if (!wallet) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center p-8 bg-white border-4 border-black rounded-2xl shadow-brutal max-w-md">
+          <Wallet size={48} className="mx-auto mb-4 text-purple-600" />
+          <h2 className="text-2xl font-black mb-2">Login Required</h2>
+          <p className="text-gray-600 mb-4">Please login to access your wallet</p>
+          <a 
+            href="/login/business" 
+            className="inline-block bg-purple-600 text-white font-bold px-6 py-3 rounded-lg border-2 border-black hover:bg-purple-700"
+          >
+            Login
+          </a>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
       <div className="max-w-4xl mx-auto">
