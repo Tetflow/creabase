@@ -508,10 +508,11 @@ async def update_user_profile(
 ):
     """Update user profile information"""
     
-    # Fields allowed to be updated
+    # Fields allowed to be updated for all users
     allowed_fields = {
         "name", "phone", "bio", "website", 
-        "instagram_handle", "youtube_channel", "rate_per_post"
+        "instagram_handle", "youtube_channel", "rate_per_post",
+        "company_name", "industry"  # Business-specific fields
     }
     
     # Filter only allowed fields
