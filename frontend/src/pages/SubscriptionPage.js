@@ -122,7 +122,7 @@ export default function SubscriptionPage() {
                 <Feature icon={<TrendingUp />} text="View creator analytics (unlimited)" />
                 <Feature icon={<Zap />} text="Create & assign projects" />
                 <Feature icon={<Award />} text="View creator ratings" />
-                <Feature icon={<CheckCircle />} text="25 contacts/month + ₹17.70 PAYG" />
+                <Feature icon={<CheckCircle />} text="25 contacts/month included" />
                 <Feature icon={<Shield />} text="Priority support" />
               </div>
             )}
@@ -165,7 +165,7 @@ export default function SubscriptionPage() {
                 <FeatureWhite icon={<TrendingUp />} text="View creator analytics (unlimited)" />
                 <FeatureWhite icon={<Zap />} text="Create & assign projects" />
                 <FeatureWhite icon={<Award />} text="View creator ratings" />
-                <FeatureWhite icon={<CheckCircle />} text="25 contacts/month + ₹17.70 PAYG" />
+                <FeatureWhite icon={<CheckCircle />} text="25 contacts/month included" />
                 <FeatureWhite icon={<Shield />} text="Priority support" />
               </div>
             )}

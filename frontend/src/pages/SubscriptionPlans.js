@@ -70,8 +70,6 @@ const SubscriptionPlans = () => {
       <div className="max-w-6xl mx-auto px-6 py-20">
         <div className="text-center mb-16">
           <h2 className="text-5xl font-black tracking-tighter mb-4">Choose Your Plan</h2>
-          <p className="text-xl text-[#4A4A4A] font-medium">25 creators/month included • ₹17.70 per additional creator</p>
-          <p className="text-sm text-[#4A4A4A] font-bold mt-2">Platform fee: 10% + GST on all projects</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
@@ -94,12 +92,6 @@ const SubscriptionPlans = () => {
                   <Check className="w-4 h-4" strokeWidth={3} />
                 </div>
                 <p className="font-bold">25 creator contacts per month</p>
-              </div>
-              <div className="flex items-start gap-3">
-                <div className="bg-[#B4F8C8] border-2 border-[#0A0A0A] rounded-full p-1 mt-1">
-                  <Check className="w-4 h-4" strokeWidth={3} />
-                </div>
-                <p className="font-bold">₹17.70 per additional creator (pay-as-you-go)</p>
               </div>
               <div className="flex items-start gap-3">
                 <div className="bg-[#B4F8C8] border-2 border-[#0A0A0A] rounded-full p-1 mt-1">
@@ -161,12 +153,6 @@ const SubscriptionPlans = () => {
                   <Check className="w-4 h-4" strokeWidth={3} />
                 </div>
                 <p className="font-bold">25 creator contacts per month</p>
-              </div>
-              <div className="flex items-start gap-3">
-                <div className="bg-[#B4F8C8] border-2 border-[#0A0A0A] rounded-full p-1 mt-1">
-                  <Check className="w-4 h-4" strokeWidth={3} />
-                </div>
-                <p className="font-bold">₹17.70 per additional creator (pay-as-you-go)</p>
               </div>
               <div className="flex items-start gap-3">
                 <div className="bg-[#B4F8C8] border-2 border-[#0A0A0A] rounded-full p-1 mt-1">

@@ -93,7 +93,7 @@ const UsageStats = () => {
           <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" strokeWidth={3} />
           <div>
             <p className="font-bold">Approaching Monthly Limit</p>
-            <p className="text-sm">You have {stats.remaining_in_plan} creator views remaining. After that, ₹17.70 will be charged per additional creator.</p>
+            <p className="text-sm">You have {stats.remaining_in_plan} creator views remaining.</p>
           </div>
         </div>
       )}
@@ -104,7 +104,7 @@ const UsageStats = () => {
           <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" strokeWidth={3} />
           <div>
             <p className="font-bold">Pay-as-you-go Active</p>
-            <p className="text-sm">You have exceeded your monthly limit. Each additional creator costs ₹17.70 (₹15 + GST).</p>
+            <p className="text-sm">You have exceeded your monthly limit.</p>
           </div>
         </div>
       )}

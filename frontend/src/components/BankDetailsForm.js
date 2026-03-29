@@ -77,7 +77,7 @@ const BankDetailsForm = ({ creatorId, onSuccess }) => {
         <div>
           <h2 className="text-2xl font-black">Bank Details for Payouts</h2>
           <p className="text-sm text-[#4A4A4A] font-medium">
-            Platform fee: 10% + GST deducted from your earnings
+            Secure payout processing for your earnings
           </p>
         </div>
       </div>

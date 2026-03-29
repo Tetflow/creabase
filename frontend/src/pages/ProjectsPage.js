@@ -201,11 +201,6 @@ const ProjectsPage = () => {
                   placeholder="Enter amount in INR"
                   className="border-2 border-[#0A0A0A]"
                 />
-                {formData.budget && parseFloat(formData.budget) > 0 && (
-                  <p className="text-sm text-[#4A4A4A] mt-2">
-                    Platform fee (10% + GST): ₹{(parseFloat(formData.budget) * 0.10 * 1.18).toFixed(2)}
-                  </p>
-                )}
               </div>
 
               <div className="flex gap-4">

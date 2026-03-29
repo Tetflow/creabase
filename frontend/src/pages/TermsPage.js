@@ -44,7 +44,6 @@ const TermsPage = () => {
                 <li>Free creator search and discovery</li>
                 <li>Subscription-based contact access (₹199/month or ₹1,999/year)</li>
                 <li>Escrow-protected project payments</li>
-                <li>Platform fee: 10% + GST from both parties</li>
               </ul>
             </section>
 
