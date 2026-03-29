@@ -1,0 +1,22 @@
+{
+  "short_name": "Creabase",
+  "name": "Creabase - Content Creator Marketplace",
+  "description": "India's Premier Content Creator Marketplace. Connect brands with verified creators on Instagram & YouTube.",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any"
+    },
+    {
+      "src": "logo.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#C6A2FF",
+  "background_color": "#ffffff"
+}
