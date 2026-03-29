@@ -7,6 +7,7 @@ import LoginPage from './pages/LoginPage';
 import AdminLoginPage from './pages/AdminLoginPage';
 import Dashboard from './pages/Dashboard';
 import BusinessSettings from './pages/BusinessSettings';
+import CreatorSettings from './pages/CreatorSettings';
 import CreatorProfile from './pages/CreatorProfile';
 import SubscriptionPlans from './pages/SubscriptionPlans';
 import SubscriptionPage from './pages/SubscriptionPage';
@@ -70,6 +71,14 @@ function AppRouter() {
         element={
           <ProtectedRoute>
             <BusinessSettings />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/creator/settings"
+        element={
+          <ProtectedRoute>
+            <CreatorSettings />
           </ProtectedRoute>
         }
       />

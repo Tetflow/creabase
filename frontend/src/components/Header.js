@@ -55,6 +55,7 @@ export default function Header() {
       { icon: <TrendingUp size={18} />, label: 'Analytics', path: '/creator-analytics' },
       { icon: <Wallet size={18} />, label: 'Wallet', path: '/wallet' },
       { icon: <AlertTriangle size={18} />, label: 'Disputes', path: '/disputes' },
+      { icon: <Settings size={18} />, label: 'Settings', path: '/creator/settings' },
     ] : [
       { icon: <Home size={18} />, label: 'Dashboard', path: '/dashboard' },
       { icon: <Briefcase size={18} />, label: 'Projects', path: '/projects' },
@@ -121,7 +122,15 @@ export default function Header() {
                     <div className="absolute right-0 mt-2 w-48 bg-white border-2 border-black shadow-brutal rounded-lg overflow-hidden">
                       <button
                         onClick={() => {
-                          navigate('/profile');
+                          if (user.role === 'business') {
+                            navigate('/business/settings');
+                          } else if (user.role === 'creator') {
+                            navigate('/creator/settings');
+                          } else if (user.role === 'admin') {
+                            navigate('/admin/settings');
+                          } else {
+                            navigate('/profile');
+                          }
                           setShowUserDropdown(false);
                         }}
                         className="w-full text-left px-4 py-3 hover:bg-gray-100 font-bold text-sm flex items-center gap-2"
@@ -236,10 +245,18 @@ export default function Header() {
                   </button>
                 )}
 
-                {/* Profile */}
+                {/* Profile/Settings */}
                 <button
                   onClick={() => {
-                    navigate('/profile');
+                    if (user.role === 'business') {
+                      navigate('/business/settings');
+                    } else if (user.role === 'creator') {
+                      navigate('/creator/settings');
+                    } else if (user.role === 'admin') {
+                      navigate('/admin/settings');
+                    } else {
+                      navigate('/profile');
+                    }
                     setShowMenu(false);
                   }}
                   className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-100 font-bold"
