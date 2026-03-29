@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import LandingPageEnhanced from './pages/LandingPageEnhanced';
 import AuthCallback from './pages/AuthCallback';
 import RoleSelectionPage from './pages/RoleSelectionPage';
@@ -51,6 +51,7 @@ function AppRouter() {
       <Routes>
       <Route path="/" element={<LandingPageEnhanced />} />
       <Route path="/select-role" element={<RoleSelectionPage />} />
+      <Route path="/login" element={<Navigate to="/select-role" replace />} />
       <Route path="/login/:role" element={<LoginPage />} />
       <Route path="/admin-login" element={<AdminLoginPage />} />
       <Route path="/pricing" element={<SubscriptionPlans />} />

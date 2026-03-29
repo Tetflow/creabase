@@ -31,12 +31,12 @@ class EmailService:
         await EmailService.send_email(
             to=creator_email,
             subject=f"New Project Offer: {project_title}",
-            body=f"You have received a new project offer. Login to Creabase to view details."
+            body="You have received a new project offer. Login to Creabase to view details."
         )
         await EmailService.send_email(
             to=business_email,
             subject=f"Project Created: {project_title}",
-            body=f"Your project has been created successfully. Waiting for creator response."
+            body="Your project has been created successfully. Waiting for creator response."
         )
     
     @staticmethod
