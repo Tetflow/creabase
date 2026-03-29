@@ -28,7 +28,8 @@ const CreatorSettings = () => {
     bank_verified: false,
     bank_account_holder: '',
     bank_name: '',
-    bank_last_4: ''
+    bank_last_4: '',
+    bank_ifsc_code: ''
   });
 
   const [bankDetails, setBankDetails] = useState({
@@ -95,7 +96,8 @@ const CreatorSettings = () => {
           bank_verified: bankData.bank_verified || false,
           bank_account_holder: bankData.bank_account_holder || '',
           bank_name: bankData.bank_name || '',
-          bank_last_4: bankData.last_4_digits || ''
+          bank_last_4: bankData.last_4_digits || '',
+          bank_ifsc_code: bankData.bank_ifsc_code || ''
         }));
       }
     } catch (error) {
@@ -224,6 +226,21 @@ const CreatorSettings = () => {
     } finally {
       setVerifying({ ...verifying, bank: false });
     }
+  };
+
+  // Open bank modal with existing data if editing
+  const openBankModal = () => {
+    if (verificationStatus.bank_verified) {
+      // Pre-fill with existing data for editing (partial data available)
+      setBankDetails({
+        bank_account_number: '',  // Don't show full number for security
+        bank_ifsc_code: verificationStatus.bank_ifsc_code || '',
+        bank_account_holder: verificationStatus.bank_account_holder || '',
+        bank_name: verificationStatus.bank_name || '',
+        upi_id: ''
+      });
+    }
+    setShowBankModal(true);
   };
 
   return (
@@ -367,40 +384,70 @@ const CreatorSettings = () => {
               </div>
             </div>
 
-            {/* Bank Account Verification */}
+            {/* Bank Account Details - Full Section */}
             <div className="border-t-2 border-[#0A0A0A] pt-6">
-              <h3 className="text-lg font-black mb-4">Bank Account Verification</h3>
-              <p className="text-sm text-[#4A4A4A] mb-4">Verify your bank account to receive payments securely</p>
+              <h3 className="text-lg font-black mb-4">Bank Account Details</h3>
+              <p className="text-sm text-[#4A4A4A] mb-4">Add your bank account to receive payments securely</p>
               
-              <div className="border-2 border-[#0A0A0A] rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Building className="w-6 h-6 text-blue-600" strokeWidth={2} />
+              {verificationStatus.bank_verified ? (
+                /* Show verified bank details */
+                <div className="space-y-4">
+                  <div className="border-2 border-green-500 rounded-lg p-4 bg-green-50">
+                    <div className="flex items-center gap-2 mb-3">
+                      <CheckCircle className="w-5 h-5 text-green-600" strokeWidth={3} />
+                      <p className="font-bold text-green-800">Bank Account Verified</p>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                      <div>
+                        <label className="block text-xs font-bold text-gray-600 mb-1">Account Holder Name</label>
+                        <p className="font-bold">{verificationStatus.bank_account_holder}</p>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs font-bold text-gray-600 mb-1">Bank Name</label>
+                        <p className="font-bold">{verificationStatus.bank_name}</p>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs font-bold text-gray-600 mb-1">Account Number</label>
+                        <p className="font-bold">****{verificationStatus.bank_last_4}</p>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs font-bold text-gray-600 mb-1">IFSC Code</label>
+                        <p className="font-bold">{verificationStatus.bank_ifsc_code || 'Not available'}</p>
+                      </div>
+                    </div>
+                    
+                    <Button
+                      onClick={openBankModal}
+                      className="mt-4 bg-blue-500 hover:bg-blue-600 text-white border-2 border-[#0A0A0A] shadow-[4px_4px_0px_0px_rgba(10,10,10,1)] font-bold"
+                    >
+                      Update Bank Details
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                /* Show add bank account form */
+                <div className="border-2 border-[#0A0A0A] rounded-lg p-6 bg-blue-50">
+                  <div className="flex items-start gap-3 mb-4">
+                    <AlertCircle className="w-6 h-6 text-blue-600 flex-shrink-0 mt-1" strokeWidth={2} />
                     <div>
-                      <p className="font-bold">Bank Account</p>
-                      {verificationStatus.bank_verified ? (
-                        <p className="text-sm text-green-600 flex items-center gap-1">
-                          <CheckCircle className="w-4 h-4" />
-                          {verificationStatus.bank_account_holder} - {verificationStatus.bank_name} (****{verificationStatus.bank_last_4})
-                        </p>
-                      ) : (
-                        <p className="text-sm text-[#4A4A4A]">Not verified</p>
-                      )}
+                      <p className="font-bold text-blue-900 mb-2">No Bank Account Added</p>
+                      <p className="text-sm text-blue-800">Add your bank account details to receive payments for completed projects.</p>
                     </div>
                   </div>
+                  
                   <Button
-                    onClick={() => setShowBankModal(true)}
-                    disabled={verificationStatus.bank_verified}
-                    className={`${
-                      verificationStatus.bank_verified 
-                        ? 'bg-green-500' 
-                        : 'bg-blue-500 hover:bg-blue-600'
-                    } text-white border-2 border-[#0A0A0A] shadow-[4px_4px_0px_0px_rgba(10,10,10,1)] font-bold`}
+                    onClick={openBankModal}
+                    className="bg-blue-600 hover:bg-blue-700 text-white border-2 border-[#0A0A0A] shadow-[4px_4px_0px_0px_rgba(10,10,10,1)] hover:shadow-[6px_6px_0px_0px_rgba(10,10,10,1)] hover:-translate-y-1 font-bold transition-all"
                   >
-                    {verificationStatus.bank_verified ? 'Verified ✓' : 'Verify'}
+                    <Building className="w-4 h-4 mr-2 inline" />
+                    Add Bank Account
                   </Button>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Website */}
@@ -470,7 +517,9 @@ const CreatorSettings = () => {
           <div className="bg-white border-2 border-[#0A0A0A] shadow-[8px_8px_0px_0px_rgba(10,10,10,1)] rounded-xl p-6 max-w-md w-full">
             <div className="flex items-center gap-3 mb-4">
               <CreditCard className="w-6 h-6" strokeWidth={3} />
-              <h3 className="text-xl font-black">Verify Bank Account</h3>
+              <h3 className="text-xl font-black">
+                {verificationStatus.bank_verified ? 'Update Bank Account' : 'Add Bank Account'}
+              </h3>
             </div>
             
             <div className="space-y-4">
@@ -537,7 +586,7 @@ const CreatorSettings = () => {
                   disabled={verifying.bank}
                   className="flex-1 bg-blue-500 hover:bg-blue-600 text-white border-2 border-[#0A0A0A] shadow-[4px_4px_0px_0px_rgba(10,10,10,1)] font-bold"
                 >
-                  {verifying.bank ? 'Verifying...' : 'Verify Account'}
+                  {verifying.bank ? 'Saving...' : verificationStatus.bank_verified ? 'Update Account' : 'Verify Account'}
                 </Button>
                 <Button
                   onClick={() => setShowBankModal(false)}

@@ -346,3 +346,100 @@ None - All critical issues from iterations 1, 2, 3 & 4 have been addressed.
 **Test Suite Created**: `/app/backend_test.py` - Comprehensive API testing for profile and verification endpoints
 
 **Status**: ✅ ALL BACKEND ENDPOINTS WORKING CORRECTLY - No critical issues found
+
+**Iteration 9 - Enhanced Bank Account Section Testing** (March 29, 2026):
+- Tested: Dedicated Bank Account section in Creator Settings with full details display and update functionality
+- **Test User**: Created via /api/test/create-test-user (role=creator, name=Bank Account Test Creator)
+- **Results**: ✅ 7/7 ALL SCENARIOS PASSED
+
+**Test Scenarios Completed:**
+
+1. ✅ **SCENARIO 1: Empty State Display** - WORKING
+   - Blue info box with AlertCircle icon displayed correctly
+   - "No Bank Account Added" heading present
+   - Payment message: "Add your bank account details to receive payments for completed projects"
+   - "Add Bank Account" button with Building icon functional
+
+2. ✅ **SCENARIO 2: Add Bank Account** - WORKING
+   - Modal opens with "Add Bank Account" title
+   - All form fields present: Account Holder, Account Number, IFSC Code, Bank Name, UPI ID
+   - Form validation working
+   - Bank verification successful (API: POST /api/creators/verify/bank/initiate)
+   - Success alert displayed
+   - Modal closes after verification
+
+3. ✅ **SCENARIO 3: Verified State Display** - WORKING
+   - Green verified box with CheckCircle icon displayed
+   - "Bank Account Verified" heading present
+   - All details displayed in 2-column responsive grid:
+     * Account Holder Name: "Test Creator Account"
+     * Bank Name: "HDFC Bank"
+     * Account Number: Masked as "****0987" (last 4 digits only)
+     * IFSC Code: "HDFC0001234" (fully visible, not masked)
+   - "Update Bank Details" button visible and clickable
+
+4. ✅ **SCENARIO 4: Data Persistence** - VERIFIED
+   - Verified state persists after page refresh
+   - All bank details persist after refresh
+   - Verified state persists after navigation (creator-dashboard → settings)
+   - Data maintained correctly across sessions
+
+5. ✅ **SCENARIO 5: Update Bank Details** - WORKING
+   - "Update Bank Details" button opens modal
+   - Modal title changes to "Update Bank Account"
+   - Form fields pre-filled with existing data:
+     * Account Holder: "Test Creator Account"
+     * IFSC Code: "HDFC0001234"
+     * Bank Name: "HDFC Bank"
+   - Update functionality works correctly
+   - Updated details verified:
+     * Account Holder: "Updated Test Creator"
+     * Bank Name: "ICICI Bank"
+     * IFSC Code: "ICIC0001111"
+     * Account Number: Masked as "****0123"
+   - Updated data persists after refresh
+
+6. ✅ **SCENARIO 6: UI/UX Elements** - CORRECT
+   - Green verified box with checkmark icon present
+   - Details displayed in responsive 2-column grid (md:grid-cols-2)
+   - Account number properly masked (****XXXX format)
+   - IFSC code fully visible (not masked)
+   - All labels clearly visible (Account Holder Name, Bank Name, Account Number, IFSC Code)
+   - "Update Bank Details" button clickable when verified
+   - Icons display correctly (Building, CheckCircle, AlertCircle)
+
+7. ✅ **SCENARIO 7: Profile Save Independence** - WORKING
+   - Profile fields (name, bio) can be edited independently
+   - "Save Changes" button works correctly
+   - Bank details section unchanged after profile save
+   - Both profile and bank data persist independently after refresh
+   - No interference between profile and bank data updates
+
+**Features Verified:**
+- ✅ Dedicated Bank Account Details section (not just modal)
+- ✅ Empty state with blue info box and clear messaging
+- ✅ Verified state with green box showing all details
+- ✅ Add bank account functionality with form validation
+- ✅ Update bank account functionality with pre-filled data
+- ✅ Account number masking (security feature)
+- ✅ IFSC code fully visible for reference
+- ✅ Data persistence across page refresh and navigation
+- ✅ Profile save works independently from bank details
+- ✅ Responsive 2-column grid layout
+- ✅ All icons display correctly (Building, CheckCircle, AlertCircle)
+- ✅ Modal title changes based on context (Add vs Update)
+- ✅ Button text changes based on context (Verify Account vs Update Account)
+
+**Minor Issues (Non-Critical):**
+- Console errors (401, 500) related to subscription endpoint - not affecting bank account functionality
+- Expected 401 errors for unauthenticated API calls before session establishment
+
+**Screenshots Captured:**
+1. bank_empty_state.png - Empty state with blue info box
+2. bank_after_add.png - After adding bank account
+3. bank_verified_state.png - Verified state with all details
+4. bank_after_navigation.png - After navigation test
+5. bank_after_update.png - After updating bank details
+6. bank_final_state.png - Final state with profile and bank data
+
+**Status**: ✅ ENHANCED BANK ACCOUNT SECTION FULLY WORKING - All 7 scenarios passed, no critical issues found
