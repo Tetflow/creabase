@@ -145,11 +145,11 @@ const CreatorSettings = () => {
       } else {
         const error = await response.json();
         alert(error.detail || 'Instagram verification not configured');
+        setVerifying({ ...verifying, instagram: false });
       }
     } catch (error) {
       console.error('Error initiating Instagram verification:', error);
       alert('Error starting Instagram verification');
-    } finally {
       setVerifying({ ...verifying, instagram: false });
     }
   };
@@ -169,11 +169,11 @@ const CreatorSettings = () => {
       } else {
         const error = await response.json();
         alert(error.detail || 'YouTube verification not configured');
+        setVerifying({ ...verifying, youtube: false });
       }
     } catch (error) {
       console.error('Error initiating YouTube verification:', error);
       alert('Error starting YouTube verification');
-    } finally {
       setVerifying({ ...verifying, youtube: false });
     }
   };

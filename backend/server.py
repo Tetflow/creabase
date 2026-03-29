@@ -537,7 +537,11 @@ async def update_user_profile(
         if "bio" in update_data:
             creator_update["bio"] = update_data["bio"]
         if "rate_per_post" in update_data:
-            creator_update["hourly_rate"] = float(update_data.get("rate_per_post", 0))
+            # Handle empty string or None - convert to 0
+            rate_value = update_data.get("rate_per_post", 0)
+            if rate_value == "" or rate_value is None:
+                rate_value = 0
+            creator_update["hourly_rate"] = float(rate_value)
         
         if creator_update:
             creator_update["updated_at"] = datetime.now(timezone.utc)

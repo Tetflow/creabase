@@ -134,6 +134,44 @@ Current Iteration: 5 (IN PROGRESS)
      - Cause: response.json() called twice (once in try block, once in error handling)
      - Impact: Error messages not displayed to user when OAuth fails
 
+**Iteration 6 - Bug Fix Verification** (March 29, 2026):
+- Tested: Verification of 2 critical bug fixes in Creator Settings
+- **Test User**: Created via /api/test/create-test-user (user_id: test_creator_505039bc)
+- **Results**: ✅ 1/2 BUGS FIXED, ❌ 1/2 BUGS STILL PRESENT
+
+**Bug Fix Status:**
+1. ✅ **BUG #1 FIXED** - Profile Save with Empty Rate Field:
+   - Backend fix confirmed: Lines 539-544 in server.py now handle empty string/None
+   - Code: `if rate_value == "" or rate_value is None: rate_value = 0`
+   - Test Result: Successfully saved profile with empty rate field (no 500 error)
+   - Data persistence: All fields persist correctly after page refresh
+   - Valid rate test: Successfully saved with rate=5000, persisted correctly
+   - **Status**: ✅ WORKING - No 500 errors, no float conversion errors
+
+2. ❌ **BUG #2 NOT FIXED** - OAuth Double json() Error:
+   - Error still occurring: "TypeError: Failed to execute 'json' on 'Response': body stream already read"
+   - Affects both Instagram and YouTube verification buttons
+   - Error location: bundle.js:40063 (Instagram), bundle.js:40094 (YouTube)
+   - Backend returns valid JSON: 503 status with {"detail": "Instagram OAuth not configured..."}
+   - Frontend code appears correct (separate json() calls in if/else blocks)
+   - **Root Cause**: Response body being consumed before reaching error handler
+   - **Impact**: Error messages not displayed to user, console shows TypeError
+   - **Status**: ❌ NOT WORKING - Still needs fix
+
+**Test Details:**
+- TEST 1: Profile save with empty rate → ✅ PASSED (no 500 error)
+- TEST 2: Profile save with valid rate (5000) → ✅ PASSED (saved and persisted)
+- TEST 3: Instagram OAuth error handling → ❌ FAILED (double json() error)
+- TEST 4: YouTube OAuth error handling → ❌ FAILED (double json() error)
+- TEST 5: Complete workflow (empty→valid rate, navigation) → ✅ PASSED (profile save works)
+
+**Screenshots Captured:**
+- Profile form with all fields filled
+- Profile save with empty rate (successful)
+- Profile save with valid rate (successful)
+- Instagram OAuth error (showing console error)
+- YouTube OAuth error (showing console error)
+
 **Iteration 4** (March 29, 2026):
 - Tested: All 9 creator dashboard pages with authenticated test user
 - **Results**: ✅ 5/8 PASSED, ⚠️ 3/8 PARTIAL (no critical failures)
