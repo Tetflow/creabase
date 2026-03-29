@@ -49,9 +49,9 @@ mongodb         ✅ RUNNING (Port 27017)
 
 ## 🌐 Access URLs
 
-- **Frontend**: https://repo-snapshot-10.preview.emergentagent.com/
-- **Backend API**: https://repo-snapshot-10.preview.emergentagent.com/api/
-- **Admin Login**: https://repo-snapshot-10.preview.emergentagent.com/admin-login
+- **Frontend**: https://github-preview-25.preview.emergentagent.com/
+- **Backend API**: https://github-preview-25.preview.emergentagent.com/api/
+- **Admin Login**: https://github-preview-25.preview.emergentagent.com/admin-login
 
 ## 👤 Test Credentials
 
@@ -184,7 +184,7 @@ CORS_ORIGINS="*"
 
 ### Frontend (.env)
 ```env
-REACT_APP_BACKEND_URL=https://repo-snapshot-10.preview.emergentagent.com
+REACT_APP_BACKEND_URL=https://github-preview-25.preview.emergentagent.com
 WDS_SOCKET_PORT=443
 ENABLE_HEALTH_CHECK=false
 ```
@@ -277,4 +277,4 @@ The application is now live with:
 ---
 
 **Status**: 🟢 Application is live and ready to use!
-**Preview URL**: https://repo-snapshot-10.preview.emergentagent.com/
+**Preview URL**: https://github-preview-25.preview.emergentagent.com/
