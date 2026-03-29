@@ -292,7 +292,11 @@ class WalletAdjustment(BaseModel):
     reason: str
     adjustment_type: str  # credit or debit
 
-# Duplicate DisputeCreate removed - using the one at line 269
+class DisputeCreate(BaseModel):
+    project_id: str
+    reason: str
+    description: str
+    evidence_urls: Optional[List[str]] = []
 
 class DisputeResolution(BaseModel):
     resolution: str  # refund_business, pay_creator, penalty, dismiss
@@ -747,6 +751,19 @@ async def get_creators(
         else:
             creator["tier_badge"] = None
             creator["verified_badge"] = False
+    
+    return creators
+    
+    creators = premium_creators + regular_creators
+    
+    for creator in creators:
+        if isinstance(creator.get('created_at'), str):
+            creator['created_at'] = datetime.fromisoformat(creator['created_at'])
+        # Add premium flag
+        if creator.get('premium_until') and isinstance(creator['premium_until'], datetime):
+            creator['is_premium'] = creator['premium_until'] > now
+        else:
+            creator['is_premium'] = False
     
     return creators
 
@@ -3020,6 +3037,38 @@ async def update_order_status(order_id: str, status_update: OrderStatusUpdate, c
     return {"message": f"Order status updated to {status_update.status}"}
 
 @api_router.post("/orders/{order_id}/revision")
+async def request_revision(order_id: str, request: Request, current_user: User = Depends(get_current_user)):
+    """Request revision on delivered work"""
+    body = await request.json()
+    revision_notes = body.get("notes", "")
+    
+    order = await db.projects.find_one({"project_id": order_id}, {"_id": 0})
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    if order["status"] != "delivered":
+        raise HTTPException(status_code=400, detail="Can only request revision on delivered orders")
+    
+    await db.projects.update_one(
+        {"project_id": order_id},
+        {"$set": {
+            "status": "revision_requested",
+            "revision_notes": revision_notes,
+            "revision_requested_at": datetime.now(timezone.utc)
+        }}
+    )
+    
+    # Notify creator
+    await NotificationService.create_notification(
+        db, order.get("creator_id", ""),
+        "Revision Requested",
+        f"Client requested revision: {revision_notes[:50]}...",
+        "order",
+        f"/orders/{order_id}"
+    )
+    
+    return {"message": "Revision requested"}
+
 @api_router.get("/orders/stats/summary")
 async def get_order_stats(current_user: User = Depends(get_current_user)):
     """Get order statistics for dashboard"""
@@ -3217,8 +3266,51 @@ async def get_portfolio(creator_id: str):
 
 # Dispute Resolution
 @api_router.post("/disputes")
+async def create_dispute(dispute: DisputeCreate, current_user: User = Depends(get_current_user)):
+    dispute_id = f"dispute_{uuid.uuid4().hex[:12]}"
+    
+    await db.disputes.insert_one({
+        "dispute_id": dispute_id,
+        "project_id": dispute.project_id,
+        "raised_by": current_user.user_id,
+        "reason": dispute.reason,
+        "description": dispute.description,
+        "status": "open",
+        "created_at": datetime.now(timezone.utc)
+    })
+    
+    # Notify admin
+    await NotificationService.create_notification(
+        db, "admin",
+        "New Dispute Raised",
+        f"Dispute raised for project {dispute.project_id}",
+        "dispute",
+        f"/admin/disputes/{dispute_id}"
+    )
+    
+    return {"message": "Dispute created. Admin will review shortly.", "dispute_id": dispute_id}
+
 @api_router.get("/disputes")
+async def get_disputes(current_user: User = Depends(get_current_user)):
+    if current_user.role == "admin":
+        disputes = await db.disputes.find({}, {"_id": 0}).to_list(100)
+    else:
+        disputes = await db.disputes.find({"raised_by": current_user.user_id}, {"_id": 0}).to_list(100)
+    return disputes
+
 @api_router.patch("/disputes/{dispute_id}/resolve")
+async def resolve_dispute(dispute_id: str, resolution: str, current_user: User = Depends(get_current_user)):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    await db.disputes.update_one(
+        {"dispute_id": dispute_id},
+        {"$set": {"status": "resolved", "resolution": resolution, "resolved_at": datetime.now(timezone.utc)}}
+    )
+    
+    return {"message": "Dispute resolved"}
+
+# Favorites/Saved Creators
 @api_router.post("/favorites")
 async def add_favorite(favorite: FavoriteCreate, current_user: User = Depends(get_current_user)):
     await db.favorites.insert_one({
@@ -3519,6 +3611,7 @@ import cashfree_pg
 from cashfree_pg.models.create_order_request import CreateOrderRequest
 from cashfree_pg.models.customer_details import CustomerDetails
 from cashfree_pg.models.order_meta import OrderMeta
+import uuid
 
 # Configure Cashfree (set globally)
 cashfree_client_id = os.getenv('CASHFREE_CLIENT_ID', '')
@@ -3854,6 +3947,39 @@ async def get_wallet_details(
         raise HTTPException(status_code=500, detail="Failed to fetch wallet details")
 
 @api_router.get("/admin/wallets/{user_id}/transactions")
+async def get_wallet_transactions(
+    user_id: str,
+    limit: int = 50,
+    current_user: User = Depends(get_current_user)
+):
+    """Get transaction history for a specific wallet"""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    try:
+        # Get wallet
+        wallet = await db.wallets.find_one({"user_id": user_id}, {"_id": 0})
+        
+        if not wallet:
+            return {"transactions": [], "total": 0}
+        
+        wallet_id = wallet.get("wallet_id") or user_id
+        
+        # Get transactions
+        transactions = await db.wallet_transactions.find(
+            {"wallet_id": wallet_id},
+            {"_id": 0}
+        ).sort("created_at", -1).limit(limit).to_list(limit)
+        
+        return {
+            "transactions": transactions,
+            "total": len(transactions)
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to fetch transactions: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to fetch transactions")
+
 class WalletAdjustment(BaseModel):
     amount: float
     adjustment_type: str  # "credit" or "debit"
@@ -3861,6 +3987,114 @@ class WalletAdjustment(BaseModel):
     notes: Optional[str] = None
 
 @api_router.post("/admin/wallets/{user_id}/adjust")
+async def adjust_wallet_balance(
+    user_id: str,
+    adjustment: WalletAdjustment,
+    current_user: User = Depends(get_current_user)
+):
+    """Manually adjust wallet balance (add or subtract funds)"""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    if adjustment.adjustment_type not in ["credit", "debit"]:
+        raise HTTPException(status_code=400, detail="Invalid adjustment type. Use 'credit' or 'debit'")
+    
+    if adjustment.amount <= 0:
+        raise HTTPException(status_code=400, detail="Amount must be positive")
+    
+    if not adjustment.reason or len(adjustment.reason.strip()) < 5:
+        raise HTTPException(status_code=400, detail="Reason is required (minimum 5 characters)")
+    
+    try:
+        # Get user
+        user = await db.users.find_one({"user_id": user_id}, {"_id": 0})
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Get wallet
+        wallet = await db.wallets.find_one({"user_id": user_id}, {"_id": 0})
+        
+        if not wallet:
+            # Create wallet
+            wallet = {
+                "wallet_id": f"wallet_{user_id}",
+                "user_id": user_id,
+                "balance": 0.0,
+                "currency": "INR",
+                "created_at": datetime.now(timezone.utc)
+            }
+            await db.wallets.insert_one(wallet)
+        
+        wallet_id = wallet.get("wallet_id", f"wallet_{user_id}")
+        current_balance = wallet.get("balance", 0.0)
+        
+        # Calculate new balance
+        if adjustment.adjustment_type == "credit":
+            new_balance = current_balance + adjustment.amount
+            transaction_type = "admin_credit"
+            description = f"Admin credit: {adjustment.reason}"
+        else:  # debit
+            if current_balance < adjustment.amount:
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Insufficient balance. Current: ₹{current_balance}, Requested: ₹{adjustment.amount}"
+                )
+            new_balance = current_balance - adjustment.amount
+            transaction_type = "admin_debit"
+            description = f"Admin debit: {adjustment.reason}"
+        
+        # Update wallet balance
+        await db.wallets.update_one(
+            {"user_id": user_id},
+            {"$set": {
+                "balance": new_balance,
+                "updated_at": datetime.now(timezone.utc)
+            }}
+        )
+        
+        # Create transaction record
+        transaction = {
+            "transaction_id": f"txn_{uuid.uuid4().hex[:12]}",
+            "wallet_id": wallet_id,
+            "user_id": user_id,
+            "amount": adjustment.amount,
+            "type": transaction_type,
+            "status": "completed",
+            "description": description,
+            "metadata": {
+                "adjusted_by": current_user.user_id,
+                "adjusted_by_email": current_user.email,
+                "reason": adjustment.reason,
+                "notes": adjustment.notes,
+                "previous_balance": current_balance,
+                "new_balance": new_balance
+            },
+            "created_at": datetime.now(timezone.utc)
+        }
+        
+        await db.wallet_transactions.insert_one(transaction)
+        
+        logger.info(
+            f"Wallet adjusted: user={user_id}, type={adjustment.adjustment_type}, "
+            f"amount={adjustment.amount}, admin={current_user.user_id}"
+        )
+        
+        return {
+            "message": "Wallet balance adjusted successfully",
+            "user_id": user_id,
+            "previous_balance": current_balance,
+            "adjustment_amount": adjustment.amount,
+            "adjustment_type": adjustment.adjustment_type,
+            "new_balance": new_balance,
+            "transaction_id": transaction["transaction_id"]
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to adjust wallet: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to adjust wallet balance")
+
 @api_router.get("/admin/wallet-adjustments")
 async def get_wallet_adjustments(
     limit: int = 100,
@@ -4699,9 +4933,9 @@ async def startup_event():
             }
             await db.wallets.insert_one(admin_wallet)
             
-            logger.info("✅ Admin user created: admin@creabase.com")
+            logger.info(f"✅ Admin user created: admin@creabase.com")
         else:
-            logger.info("✓ Admin user already exists")
+            logger.info(f"✓ Admin user already exists")
     except Exception as e:
         logger.error(f"❌ Failed to seed admin: {str(e)}")
 
@@ -4991,12 +5225,58 @@ async def request_payout(
         "message": "Payout request submitted. Admin will review and process within 2-3 business days."
     }
 
-# Duplicate get_wallet_balance removed (original at line ~2234)
+
+@api_router.get("/wallet/balance")
+async def get_wallet_balance(current_user: User = Depends(get_current_user)):
+    """Get wallet balance and recent transactions"""
+    wallet = await get_or_create_wallet(current_user.user_id)
+    
+    # Get recent transactions
+    transactions = await db.wallet_transactions.find(
+        {"user_id": current_user.user_id},
+        {"_id": 0}
+    ).sort("created_at", -1).limit(10).to_list(10)
+    
+    return {
+        "wallet_id": wallet["wallet_id"],
+        "balance": wallet["balance"],
+        "currency": wallet.get("currency", "INR"),
+        "recent_transactions": transactions,
+        "can_topup": current_user.role == "business",
+        "can_withdraw": current_user.role == "creator"
+    }
 
 
 # ==================== ADMIN PAYOUT ENDPOINTS ====================
 
-# Duplicate get_all_payouts removed (original at line ~4807)
+@api_router.get("/admin/payouts")
+async def get_all_payouts(
+    status: Optional[str] = None,
+    current_user: User = Depends(get_current_user)
+):
+    """Admin: Get all payout requests"""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    query = {}
+    if status:
+        query["status"] = status
+    
+    payouts = await db.payout_requests.find(query, {"_id": 0}).sort("requested_at", -1).to_list(100)
+    
+    # Enrich with user details and wallet balance
+    for payout in payouts:
+        user = await db.users.find_one({"user_id": payout["creator_id"]}, {"_id": 0, "name": 1, "email": 1})
+        if user:
+            payout["creator_email"] = user["email"]
+        
+        # Get wallet balance
+        wallet = await db.wallets.find_one({"user_id": payout["creator_id"]}, {"_id": 0, "balance": 1})
+        if wallet:
+            payout["wallet_balance"] = wallet["balance"]
+            payout["sufficient_balance"] = wallet["balance"] >= payout["amount"]
+    
+    return payouts
 
 
 @api_router.post("/admin/payouts/{payout_id}/action")

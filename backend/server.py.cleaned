@@ -292,7 +292,11 @@ class WalletAdjustment(BaseModel):
     reason: str
     adjustment_type: str  # credit or debit
 
-# Duplicate DisputeCreate removed - using the one at line 269
+class DisputeCreate(BaseModel):
+    project_id: str
+    reason: str
+    description: str
+    evidence_urls: Optional[List[str]] = []
 
 class DisputeResolution(BaseModel):
     resolution: str  # refund_business, pay_creator, penalty, dismiss
@@ -747,6 +751,19 @@ async def get_creators(
         else:
             creator["tier_badge"] = None
             creator["verified_badge"] = False
+    
+    return creators
+    
+    creators = premium_creators + regular_creators
+    
+    for creator in creators:
+        if isinstance(creator.get('created_at'), str):
+            creator['created_at'] = datetime.fromisoformat(creator['created_at'])
+        # Add premium flag
+        if creator.get('premium_until') and isinstance(creator['premium_until'], datetime):
+            creator['is_premium'] = creator['premium_until'] > now
+        else:
+            creator['is_premium'] = False
     
     return creators
 
@@ -3019,7 +3036,7 @@ async def update_order_status(order_id: str, status_update: OrderStatusUpdate, c
     
     return {"message": f"Order status updated to {status_update.status}"}
 
-@api_router.post("/orders/{order_id}/revision")
+
 @api_router.get("/orders/stats/summary")
 async def get_order_stats(current_user: User = Depends(get_current_user)):
     """Get order statistics for dashboard"""
@@ -3217,55 +3234,10 @@ async def get_portfolio(creator_id: str):
 
 # Dispute Resolution
 @api_router.post("/disputes")
+    return {"message": "Dispute created. Admin will review shortly.", "dispute_id": dispute_id}
+
 @api_router.get("/disputes")
 @api_router.patch("/disputes/{dispute_id}/resolve")
-@api_router.post("/favorites")
-async def add_favorite(favorite: FavoriteCreate, current_user: User = Depends(get_current_user)):
-    await db.favorites.insert_one({
-        "user_id": current_user.user_id,
-        "creator_id": favorite.creator_id,
-        "created_at": datetime.now(timezone.utc)
-    })
-    return {"message": "Creator added to favorites"}
-
-@api_router.delete("/favorites/{creator_id}")
-async def remove_favorite(creator_id: str, current_user: User = Depends(get_current_user)):
-    await db.favorites.delete_one({"user_id": current_user.user_id, "creator_id": creator_id})
-    return {"message": "Creator removed from favorites"}
-
-@api_router.get("/favorites")
-async def get_favorites(current_user: User = Depends(get_current_user)):
-    favorites = await db.favorites.find({"user_id": current_user.user_id}, {"_id": 0}).to_list(100)
-    creator_ids = [f["creator_id"] for f in favorites]
-    creators = await db.creators.find({"creator_id": {"$in": creator_ids}}, {"_id": 0, "email": 0, "phone": 0}).to_list(100)
-    return creators
-
-# Notifications
-@api_router.get("/notifications")
-async def get_notifications(current_user: User = Depends(get_current_user)):
-    notifications = await db.notifications.find({"user_id": current_user.user_id}, {"_id": 0}).sort("created_at", -1).limit(50).to_list(50)
-    return notifications
-
-@api_router.patch("/notifications/{notification_id}/read")
-async def mark_notification_read(notification_id: str, current_user: User = Depends(get_current_user)):
-    await db.notifications.update_one(
-        {"notification_id": notification_id, "user_id": current_user.user_id},
-        {"$set": {"read": True}}
-    )
-    return {"message": "Notification marked as read"}
-
-@api_router.delete("/notifications/{notification_id}")
-async def delete_notification(notification_id: str, current_user: User = Depends(get_current_user)):
-    await db.notifications.delete_one({"notification_id": notification_id, "user_id": current_user.user_id})
-    return {"message": "Notification deleted"}
-
-# File Upload
-@api_router.post("/upload")
-async def upload_file(file: UploadFile = File(...), current_user: User = Depends(get_current_user)):
-    contents = await file.read()
-    file_url = await FileUploadService.upload_file(contents, file.filename, "uploads")
-    return {"file_url": file_url, "filename": file.filename}
-
 # ==================== Social Media Verification ====================
 from social_verification import instagram_oauth, youtube_oauth
 
@@ -3519,6 +3491,7 @@ import cashfree_pg
 from cashfree_pg.models.create_order_request import CreateOrderRequest
 from cashfree_pg.models.customer_details import CustomerDetails
 from cashfree_pg.models.order_meta import OrderMeta
+import uuid
 
 # Configure Cashfree (set globally)
 cashfree_client_id = os.getenv('CASHFREE_CLIENT_ID', '')
@@ -3861,6 +3834,53 @@ class WalletAdjustment(BaseModel):
     notes: Optional[str] = None
 
 @api_router.post("/admin/wallets/{user_id}/adjust")
+                "updated_at": datetime.now(timezone.utc)
+            }}
+        )
+        
+        # Create transaction record
+        transaction = {
+            "transaction_id": f"txn_{uuid.uuid4().hex[:12]}",
+            "wallet_id": wallet_id,
+            "user_id": user_id,
+            "amount": adjustment.amount,
+            "type": transaction_type,
+            "status": "completed",
+            "description": description,
+            "metadata": {
+                "adjusted_by": current_user.user_id,
+                "adjusted_by_email": current_user.email,
+                "reason": adjustment.reason,
+                "notes": adjustment.notes,
+                "previous_balance": current_balance,
+                "new_balance": new_balance
+            },
+            "created_at": datetime.now(timezone.utc)
+        }
+        
+        await db.wallet_transactions.insert_one(transaction)
+        
+        logger.info(
+            f"Wallet adjusted: user={user_id}, type={adjustment.adjustment_type}, "
+            f"amount={adjustment.amount}, admin={current_user.user_id}"
+        )
+        
+        return {
+            "message": "Wallet balance adjusted successfully",
+            "user_id": user_id,
+            "previous_balance": current_balance,
+            "adjustment_amount": adjustment.amount,
+            "adjustment_type": adjustment.adjustment_type,
+            "new_balance": new_balance,
+            "transaction_id": transaction["transaction_id"]
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to adjust wallet: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to adjust wallet balance")
+
 @api_router.get("/admin/wallet-adjustments")
 async def get_wallet_adjustments(
     limit: int = 100,
@@ -4699,9 +4719,9 @@ async def startup_event():
             }
             await db.wallets.insert_one(admin_wallet)
             
-            logger.info("✅ Admin user created: admin@creabase.com")
+            logger.info(f"✅ Admin user created: admin@creabase.com")
         else:
-            logger.info("✓ Admin user already exists")
+            logger.info(f"✓ Admin user already exists")
     except Exception as e:
         logger.error(f"❌ Failed to seed admin: {str(e)}")
 
@@ -4991,12 +5011,13 @@ async def request_payout(
         "message": "Payout request submitted. Admin will review and process within 2-3 business days."
     }
 
-# Duplicate get_wallet_balance removed (original at line ~2234)
+
+@api_router.get("/wallet/balance")
 
 
 # ==================== ADMIN PAYOUT ENDPOINTS ====================
 
-# Duplicate get_all_payouts removed (original at line ~4807)
+@api_router.get("/admin/payouts")
 
 
 @api_router.post("/admin/payouts/{payout_id}/action")
