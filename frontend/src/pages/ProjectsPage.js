@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, Plus, Briefcase, Clock, CheckCircle, XCircle, FileText, AlertTriangle } from 'lucide-react';
+import { Users, Plus, Briefcase, Clock, CheckCircle, XCircle, FileText, AlertTriangle, Star } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Textarea } from '../components/ui/textarea';
@@ -9,6 +9,7 @@ import EmptyState from '../components/EmptyState';
 import { ListSkeleton } from '../components/Skeletons';
 import BottomNav from '../components/BottomNav';
 import DisputeFormModal from '../components/DisputeFormModal';
+import ReviewModal from '../components/ReviewModal';
 import axios from 'axios';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -20,6 +21,7 @@ const ProjectsPage = () => {
   const [loading, setLoading] = useState(true);
   const [selectedCreator, setSelectedCreator] = useState(null);
   const [showDisputeModal, setShowDisputeModal] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
   const [selectedProject, setSelectedProject] = useState(null);
   const [formData, setFormData] = useState({
     title: '',
@@ -335,9 +337,21 @@ const ProjectsPage = () => {
                     </>
                   )}
                   {project.status === 'completed' && (
-                    <div className="bg-[#B4F8C8] border-2 border-[#0A0A0A] rounded-lg px-4 py-2">
-                      <p className="font-bold text-sm">✅ Completed & Paid</p>
-                    </div>
+                    <>
+                      <div className="bg-[#B4F8C8] border-2 border-[#0A0A0A] rounded-lg px-4 py-2">
+                        <p className="font-bold text-sm">✅ Completed & Paid</p>
+                      </div>
+                      <Button
+                        onClick={() => {
+                          setSelectedProject(project);
+                          setShowReviewModal(true);
+                        }}
+                        className="bg-[#FFD93D] hover:bg-[#FFC700] text-black border-2 border-[#0A0A0A] shadow-[4px_4px_0px_0px_rgba(10,10,10,1)] hover:shadow-[6px_6px_0px_0px_rgba(10,10,10,1)] hover:-translate-y-1 font-bold transition-all"
+                      >
+                        <Star className="w-4 h-4 mr-2" />
+                        Leave Review
+                      </Button>
+                    </>
                   )}
                   {(project.status === 'active' || project.status === 'in_progress') && (
                     <div className="bg-[#C6A2FF] border-2 border-[#0A0A0A] rounded-lg px-4 py-2">
@@ -374,18 +388,33 @@ const ProjectsPage = () => {
 
       {/* Dispute Modal */}
       {selectedProject && (
-        <DisputeFormModal
-          open={showDisputeModal}
-          onClose={() => {
-            setShowDisputeModal(false);
-            setSelectedProject(null);
-          }}
-          projectId={selectedProject.project_id}
-          projectTitle={selectedProject.title}
-          onSuccess={() => {
-            fetchProjects();
-          }}
-        />
+        <>
+          <DisputeFormModal
+            open={showDisputeModal}
+            onClose={() => {
+              setShowDisputeModal(false);
+              setSelectedProject(null);
+            }}
+            projectId={selectedProject.project_id}
+            projectTitle={selectedProject.title}
+            onSuccess={() => {
+              fetchProjects();
+            }}
+          />
+          
+          <ReviewModal
+            isOpen={showReviewModal}
+            onClose={() => {
+              setShowReviewModal(false);
+              setSelectedProject(null);
+            }}
+            project={selectedProject}
+            onSubmitSuccess={() => {
+              alert('Thank you for your review!');
+              fetchProjects();
+            }}
+          />
+        </>
       )}
 
       {/* Bottom Navigation for Mobile */}

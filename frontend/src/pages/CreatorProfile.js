@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Instagram, Youtube, TrendingUp, Users, Lock } from 'lucide-react';
+import { ArrowLeft, Instagram, Youtube, TrendingUp, Users, Lock, Star } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import CreatorBadge from '../components/CreatorBadge';
+import RatingStars from '../components/RatingStars';
 import axios from 'axios';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -11,11 +12,13 @@ const CreatorProfile = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [creator, setCreator] = useState(null);
+  const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [hasAccess, setHasAccess] = useState(false);
 
   useEffect(() => {
     fetchCreator();
+    fetchReviews();
     checkAccess();
   }, [id]);
 
@@ -29,6 +32,17 @@ const CreatorProfile = () => {
     } catch (error) {
       console.error('Failed to fetch creator:', error);
       setLoading(false);
+    }
+  };
+
+  const fetchReviews = async () => {
+    try {
+      const response = await axios.get(`${BACKEND_URL}/api/creators/${id}/reviews`, {
+        withCredentials: true
+      });
+      setReviews(response.data);
+    } catch (error) {
+      console.error('Failed to fetch reviews:', error);
     }
   };
 
@@ -190,6 +204,48 @@ const CreatorProfile = () => {
               </div>
             )}
           </div>
+        </div>
+
+        {/* Reviews Section */}
+        <div className="bg-white border-2 border-[#0A0A0A] shadow-[6px_6px_0px_0px_rgba(10,10,10,1)] rounded-xl p-6 sm:p-8">
+          <div className="flex items-center gap-3 mb-6">
+            <Star className="w-6 h-6 fill-yellow-400 text-yellow-400" strokeWidth={3} />
+            <h2 className="text-2xl sm:text-3xl font-black">
+              Reviews & Ratings
+            </h2>
+          </div>
+
+          {reviews.length > 0 ? (
+            <div className="space-y-4">
+              {reviews.map((review, index) => (
+                <div
+                  key={index}
+                  className="bg-gray-50 border-2 border-[#0A0A0A] rounded-lg p-4 sm:p-6"
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <RatingStars rating={review.rating} size={20} />
+                      <p className="text-sm text-gray-600 mt-1">
+                        {new Date(review.created_at).toLocaleDateString('en-US', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric'
+                        })}
+                      </p>
+                    </div>
+                  </div>
+                  {review.comment && (
+                    <p className="text-gray-700 font-medium">{review.comment}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12 text-gray-500">
+              <Star size={48} className="mx-auto mb-4 opacity-50" />
+              <p className="font-medium">No reviews yet</p>
+            </div>
+          )}
         </div>
       </div>
     </div>
